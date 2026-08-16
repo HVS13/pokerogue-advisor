@@ -17,16 +17,6 @@ function getBattleDecisionStrength(best: BattleMoveCandidate, second?: BattleMov
   return "strong";
 }
 
-function getConfidence(strength: DecisionStrength): number {
-  switch (strength) {
-    case "strong": return 0.88;
-    case "moderate": return 0.75;
-    case "slight": return 0.62;
-    case "equivalent": return 0.52;
-    case "situational": return 0.55;
-  }
-}
-
 function formatMoveLabel(move: BattleMoveCandidate): string {
   return move.target ? `${move.name} → ${move.target}` : move.name;
 }
@@ -59,7 +49,6 @@ function buildDecision(sorted: BattleMoveCandidate[]): AdvisorRecommendation | u
     id: `battle:decision:${best.id}`,
     label: `USE ${formatMoveLabel(best).toUpperCase()}`,
     score: best.plannerScore,
-    confidence: getConfidence(strength),
     isDecision: true,
     decisionStrength: strength,
     reason: reasons,
