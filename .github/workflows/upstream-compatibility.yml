@@ -1,0 +1,99 @@
+name: Upstream compatibility
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  solvolrund-2p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout advisor main
+        uses: actions/checkout@v4
+        with:
+          path: advisor
+      - name: Checkout latest PokeRogue 2P
+        uses: actions/checkout@v4
+        with:
+          repository: SolVolrund/pokerogue-2p-beta
+          ref: master
+          path: game
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.9.0
+      - run: corepack enable
+      - name: Record upstream revision
+        working-directory: game
+        run: echo "SolVolrund/pokerogue-2p-beta master: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install upstream dependencies
+        working-directory: game/pokerogue-beta
+        run: corepack pnpm install --frozen-lockfile
+      - name: Capture upstream TypeScript baseline
+        working-directory: game/pokerogue-beta
+        run: corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/tsc-before.txt" 2>&1 || true
+      - name: Install Advisor twice to verify real-source idempotency
+        run: |
+          node advisor/scripts/install-2p.mjs game
+          node advisor/scripts/install-2p.mjs game
+      - name: Typecheck after Advisor integration
+        working-directory: game/pokerogue-beta
+        run: corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/tsc-after.txt" 2>&1 || true
+      - name: Reject new TypeScript errors
+        shell: bash
+        run: |
+          sort -u "$RUNNER_TEMP/tsc-before.txt" > "$RUNNER_TEMP/tsc-before.sorted.txt"
+          sort -u "$RUNNER_TEMP/tsc-after.txt" > "$RUNNER_TEMP/tsc-after.sorted.txt"
+          comm -13 "$RUNNER_TEMP/tsc-before.sorted.txt" "$RUNNER_TEMP/tsc-after.sorted.txt" > "$RUNNER_TEMP/tsc-added.txt"
+          if [ -s "$RUNNER_TEMP/tsc-added.txt" ]; then
+            echo "Advisor integration introduced new TypeScript errors:"
+            cat "$RUNNER_TEMP/tsc-added.txt"
+            exit 1
+          fi
+          echo "PASS: latest 2P source remains compatible."
+
+  official-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout advisor main
+        uses: actions/checkout@v4
+        with:
+          path: advisor
+      - name: Checkout latest official PokeRogue beta
+        uses: actions/checkout@v4
+        with:
+          repository: pagefaultgames/pokerogue
+          ref: beta
+          path: game
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.9.0
+      - run: corepack enable
+      - name: Record upstream revision
+        working-directory: game
+        run: echo "pagefaultgames/pokerogue beta: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install upstream dependencies
+        working-directory: game
+        run: corepack pnpm install --frozen-lockfile
+      - name: Capture upstream TypeScript baseline
+        working-directory: game
+        run: corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/official-tsc-before.txt" 2>&1 || true
+      - name: Install official Advisor twice to verify real-source idempotency
+        run: |
+          node advisor/scripts/install-official.mjs game
+          node advisor/scripts/install-official.mjs game
+      - name: Typecheck after Advisor integration
+        working-directory: game
+        run: corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/official-tsc-after.txt" 2>&1 || true
+      - name: Reject new TypeScript errors
+        shell: bash
+        run: |
+          sort -u "$RUNNER_TEMP/official-tsc-before.txt" > "$RUNNER_TEMP/official-tsc-before.sorted.txt"
+          sort -u "$RUNNER_TEMP/official-tsc-after.txt" > "$RUNNER_TEMP/official-tsc-after.sorted.txt"
+          comm -13 "$RUNNER_TEMP/official-tsc-before.sorted.txt" "$RUNNER_TEMP/official-tsc-after.sorted.txt" > "$RUNNER_TEMP/official-tsc-added.txt"
+          if [ -s "$RUNNER_TEMP/official-tsc-added.txt" ]; then
+            echo "Official Advisor adapter introduced new TypeScript errors:"
+            cat "$RUNNER_TEMP/official-tsc-added.txt"
+            exit 1
+          fi
+          echo "PASS: latest official beta capture source remains compatible."
