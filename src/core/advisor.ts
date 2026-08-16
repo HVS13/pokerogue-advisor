@@ -30,8 +30,7 @@ function analyzeCaptureTarget(target: CaptureSnapshot): AdvisorRecommendation[] 
 
 function analyzeCaptureTargets(targets: CaptureSnapshot[]): AdvisorRecommendation[] {
   const multipleTargets = targets.length > 1;
-
-  return targets.flatMap(target =>
+  const recommendations = targets.flatMap(target =>
     analyzeCaptureTarget(target).map(recommendation => ({
       ...recommendation,
       label: multipleTargets && !recommendation.label.startsWith("Catch value:")
@@ -39,6 +38,13 @@ function analyzeCaptureTargets(targets: CaptureSnapshot[]): AdvisorRecommendatio
         : recommendation.label,
     })),
   );
+
+  // In multi-target battles, never let target 1 evidence hide target 2's actual decision.
+  return [
+    ...recommendations.filter(recommendation => recommendation.isDecision),
+    ...recommendations.filter(recommendation => !recommendation.isDecision && recommendation.id.endsWith(":team-fit")),
+    ...recommendations.filter(recommendation => !recommendation.isDecision && !recommendation.id.endsWith(":team-fit")),
+  ];
 }
 
 export function analyzeSnapshot(snapshot: AdvisorSnapshot): AdvisorRecommendation[] {
