@@ -49,6 +49,32 @@ If incomplete, re-run:
 node scripts/install-official.mjs "C:\path\to\pokerogue"
 ```
 
+## Export a decision session
+
+The extension automatically keeps only the last **100 meaningful decision states in memory**. It ignores idle states, timestamp-only changes, and repeated copies of the same state.
+
+Press:
+
+```text
+Shift+F8
+```
+
+to download a small `pokerogue-advisor-session-*.json` file.
+
+The file contains only the serialized Advisor snapshot and the recommendation produced from it. It is intended for reproducing bad or confusing advice. The recorder does not upload anything, use browser storage, inspect save files, or add extension permissions.
+
+If a recommendation looks wrong later, send that JSON file instead of trying to recreate the run from memory.
+
+## Replay a recorded session during development
+
+From a source checkout of this repository:
+
+```bash
+npm run replay -- path\to\pokerogue-advisor-session.json
+```
+
+Replay recomputes every recorded recommendation with the current Advisor core and reports whether the output still matches exactly. This makes decision regressions reproducible without launching PokeRogue.
+
 ## What the doctor intentionally does not do
 
 It does not modify files, launch the game, inspect save data, send network messages, or attempt to repair a partially modified checkout. It only reads the expected local source files and reports whether the Advisor integration points are present.

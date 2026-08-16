@@ -3,6 +3,7 @@ import { isLikelyPokeRoguePage } from "./bridge/page-detection.js";
 import { analyzeSnapshot } from "./core/advisor.js";
 import { getSnapshotContentKey } from "./core/snapshot-key.js";
 import type { AdvisorSnapshot } from "./core/types.js";
+import { AcceptanceRecorder, serializeAcceptanceSession } from "./debug/acceptance-recorder.js";
 import { renderAdvisor, setAdvisorVisible } from "./overlay/render.js";
 
 const DETECTION_RETRIES = 20;
@@ -13,6 +14,7 @@ let lastSnapshotKey: string | undefined;
 let visible = true;
 let disconnectedRendered = false;
 let pollingStarted = false;
+const acceptanceRecorder = new AcceptanceRecorder(100);
 
 function renderDisconnectedState(): void {
   if (disconnectedRendered) return;
@@ -24,6 +26,17 @@ function renderDisconnectedState(): void {
     generatedAt: Date.now(),
   };
   renderAdvisor(snapshot, []);
+}
+
+function exportAcceptanceSession(): void {
+  const session = acceptanceRecorder.exportSession();
+  const blob = new Blob([serializeAcceptanceSession(session)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `pokerogue-advisor-session-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function tick(): void {
@@ -38,7 +51,10 @@ function tick(): void {
   const snapshotKey = getSnapshotContentKey(snapshot);
   if (snapshotKey === lastSnapshotKey) return;
   lastSnapshotKey = snapshotKey;
-  renderAdvisor(snapshot, analyzeSnapshot(snapshot));
+
+  const recommendations = analyzeSnapshot(snapshot);
+  acceptanceRecorder.record(snapshot, recommendations);
+  renderAdvisor(snapshot, recommendations);
 }
 
 function startAdvisor(): void {
@@ -48,6 +64,11 @@ function startAdvisor(): void {
 
   window.addEventListener("keydown", event => {
     if (event.key !== "F8") return;
+    event.preventDefault();
+    if (event.shiftKey) {
+      exportAcceptanceSession();
+      return;
+    }
     visible = !visible;
     setAdvisorVisible(visible);
   });
