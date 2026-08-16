@@ -19,8 +19,8 @@ function ensureRoot(): HTMLDivElement {
     position: "fixed",
     right: "16px",
     top: "16px",
-    width: "320px",
-    maxHeight: "70vh",
+    width: "340px",
+    maxHeight: "76vh",
     overflow: "auto",
     zIndex: "2147483647",
     background: "rgba(12, 14, 18, 0.94)",
@@ -65,13 +65,14 @@ export function renderAdvisor(snapshot: AdvisorSnapshot, recommendations: Adviso
   header.append(title, context);
   el.appendChild(header);
 
-  const top = recommendations.slice(0, 5);
-  if (top.length === 0) {
-    addText(el, "Waiting for a decision...", ".7");
+  const shown = snapshot.context === "capture" ? recommendations : recommendations.slice(0, 5);
+  if (shown.length === 0) {
+    addText(el, snapshot.notice ?? "Waiting for a decision...", ".7");
+    addText(el, "F8: show/hide", ".5").style.marginTop = "8px";
     return;
   }
 
-  for (const rec of top) {
+  for (const rec of shown) {
     const card = document.createElement("div");
     Object.assign(card.style, {
       padding: "9px 0",
