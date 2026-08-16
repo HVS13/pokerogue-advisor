@@ -39,6 +39,27 @@ export interface CaptureBallCandidate {
   resourceRank?: number;
 }
 
+export type CapturePreparationKind = "weaken" | "status";
+
+/**
+ * One safe, adapter-observed action that can improve a later capture attempt.
+ * Projected balls are adapter-calculated because critical-capture chance can vary per ball.
+ */
+export interface CapturePreparationOption {
+  kind: CapturePreparationKind;
+  moveIndex: number;
+  moveName: string;
+  projectedBalls: CaptureBallCandidate[];
+  /** Approximate chance the preparation succeeds, including move accuracy when known. */
+  successProbability?: number;
+  /** Approximate fraction of the target's current HP removed by the move. */
+  estimatedDamageRatio?: number;
+  projectedHp?: number;
+  statusName?: string;
+  statusMultiplier?: number;
+  warning?: string;
+}
+
 export interface CaptureSnapshot {
   /** Stable target id from the game when available. */
   targetId?: number;
@@ -48,13 +69,18 @@ export interface CaptureSnapshot {
   catchRate: number;
   statusMultiplier: number;
   shinyMultiplier: number;
+  isShiny?: boolean;
+  /** Current active player's HP ratio, used as a conservative extra-turn risk signal. */
+  activeHpRatio?: number;
   /**
    * Fallback critical-capture probability from 0 to 1.
    * Prefer per-ball `probability` from the game adapter because critical chance can vary by ball.
    */
   criticalCaptureProbability?: number;
   balls: CaptureBallCandidate[];
-  /** Team-fit score from 0 to 100. */
+  /** Safe one-turn preparation options observed by the game adapter. */
+  preparations?: CapturePreparationOption[];
+  /** Team-fit / catch-value score from 0 to 100. */
   teamFitScore?: number;
   replacementName?: string;
 }
