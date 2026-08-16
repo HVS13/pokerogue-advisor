@@ -22,7 +22,10 @@ declare global {
   }
 }
 
+export const NON_IDLE_SNAPSHOT_GRACE_MS = 250;
+
 let latestSnapshot: AdvisorSnapshot | undefined;
+let latestSnapshotReceivedAt = 0;
 let listenerInstalled = false;
 
 function isSnapshot(value: unknown): value is AdvisorSnapshot {
@@ -33,6 +36,18 @@ function isSnapshot(value: unknown): value is AdvisorSnapshot {
     && typeof snapshot.generatedAt === "number";
 }
 
+export function shouldAcceptSnapshot(
+  previous: AdvisorSnapshot | undefined,
+  previousReceivedAt: number,
+  next: AdvisorSnapshot,
+  now: number,
+): boolean {
+  if (!previous) return true;
+  if (next.context !== "idle") return true;
+  if (previous.context === "idle") return true;
+  return now - previousReceivedAt >= NON_IDLE_SNAPSHOT_GRACE_MS;
+}
+
 function installListener(): void {
   if (listenerInstalled) return;
   listenerInstalled = true;
@@ -40,10 +55,12 @@ function installListener(): void {
   window.addEventListener("message", event => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const data = event.data as Partial<AdvisorSnapshotMessage> | undefined;
-    if (data?.source !== "pokerogue-advisor-game" || data.type !== "snapshot" || !isSnapshot(data.snapshot)) {
-      return;
-    }
+    if (data?.source !== "pokerogue-advisor-game" || data.type !== "snapshot" || !isSnapshot(data.snapshot)) return;
+
+    const now = Date.now();
+    if (!shouldAcceptSnapshot(latestSnapshot, latestSnapshotReceivedAt, data.snapshot, now)) return;
     latestSnapshot = data.snapshot;
+    latestSnapshotReceivedAt = now;
   });
 }
 

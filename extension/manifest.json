@@ -2,10 +2,16 @@
   "manifest_version": 3,
   "name": "PokeRogue Advisor",
   "version": "0.1.0",
-  "description": "Read-only decision overlay for a PokeRogue build exposing window.pokerogueAdvisor.",
+  "description": "Read-only decision overlay for supported PokeRogue builds.",
   "content_scripts": [
     {
-      "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*/*", "https://*/*"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://*/*",
+        "https://pokerogue.net/*",
+        "https://*.pokerogue.net/*"
+      ],
       "js": ["advisor.js"],
       "run_at": "document_idle"
     }
