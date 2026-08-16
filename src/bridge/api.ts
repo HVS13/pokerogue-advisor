@@ -22,7 +22,15 @@ declare global {
   }
 }
 
+/**
+ * A real decision provider gets a short grace period over an idle fallback.
+ * This prevents the 2P battle/capture bridge's idle response from briefly
+ * overwriting the reward/shop sidecar on the same polling cycle.
+ */
+export const NON_IDLE_SNAPSHOT_GRACE_MS = 250;
+
 let latestSnapshot: AdvisorSnapshot | undefined;
+let latestSnapshotReceivedAt = 0;
 let listenerInstalled = false;
 
 function isSnapshot(value: unknown): value is AdvisorSnapshot {
@@ -31,6 +39,19 @@ function isSnapshot(value: unknown): value is AdvisorSnapshot {
   return snapshot.version === 1
     && typeof snapshot.context === "string"
     && typeof snapshot.generatedAt === "number";
+}
+
+export function shouldAcceptSnapshot(
+  previous: AdvisorSnapshot | undefined,
+  previousReceivedAt: number,
+  next: AdvisorSnapshot,
+  now: number,
+): boolean {
+  if (!previous) return true;
+  if (next.context !== "idle") return true;
+  if (previous.context === "idle") return true;
+
+  return now - previousReceivedAt >= NON_IDLE_SNAPSHOT_GRACE_MS;
 }
 
 function installListener(): void {
@@ -43,7 +64,11 @@ function installListener(): void {
     if (data?.source !== "pokerogue-advisor-game" || data.type !== "snapshot" || !isSnapshot(data.snapshot)) {
       return;
     }
+
+    const now = Date.now();
+    if (!shouldAcceptSnapshot(latestSnapshot, latestSnapshotReceivedAt, data.snapshot, now)) return;
     latestSnapshot = data.snapshot;
+    latestSnapshotReceivedAt = now;
   });
 }
 
