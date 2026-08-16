@@ -123,24 +123,26 @@ function buildRewardChoices(
 function buildShopChoices(
   options: ModifierTypeOptionType[],
   party: PlayerPokemon[],
-  money: number,
+  eligibilityMoney: number,
+  actualMoney: number,
   reserveCost: number,
+  waiveCost: boolean,
 ): WireChoice[] {
   return options.flatMap((option, optionIndex) => {
     const choice = scoreComputerPartnerRecoveryOption(option, optionIndex, party);
-    if (!choice || choice.cost > money) return [];
-    if (!choice.isEmergency && money - choice.cost < reserveCost) return [];
+    if (!choice || choice.cost > eligibilityMoney) return [];
+    if (!choice.isEmergency && eligibilityMoney - choice.cost < reserveCost) return [];
     const target = getTargetLabel(choice, party);
 
     return [{
       id: `${optionIndex}:${choice.itemId}`,
       name: option.type.name,
       score: choice.score,
-      reason: choice.reason,
-      cost: choice.cost,
+      reason: waiveCost ? `${choice.reason}; purchase cost is waived by the active override` : choice.reason,
+      cost: waiveCost ? 0 : choice.cost,
       emergency: choice.isEmergency,
       reserveCost,
-      moneyAfterPurchase: money - choice.cost,
+      moneyAfterPurchase: waiveCost ? actualMoney : actualMoney - choice.cost,
       ...(target ? { target } : {}),
     }];
   });
@@ -165,7 +167,8 @@ function buildRewardShopSnapshot(): WireRewardShopSnapshot | undefined {
   const playerIndex = phase.playerIndex;
   const party = globalScene.getPlayerParty(playerIndex);
   const realMoney = globalScene.getPlayerMoney(playerIndex);
-  const scoringMoney = activeOverrides.WAIVE_ROLL_FEE_OVERRIDE ? Number.MAX_SAFE_INTEGER : realMoney;
+  const waiveCost = activeOverrides.WAIVE_ROLL_FEE_OVERRIDE;
+  const eligibilityMoney = waiveCost ? Number.MAX_SAFE_INTEGER : realMoney;
   const shopOptions = getAdjustedShopOptions(playerIndex);
   const reserveCost = getComputerPartnerShopReserve(shopOptions);
   const rewardOptionKey = phase.typeOptions.map(option => `${option.type.id ?? option.type.name}:${option.type.tier ?? -1}`).join(",");
@@ -174,6 +177,7 @@ function buildRewardShopSnapshot(): WireRewardShopSnapshot | undefined {
     globalScene.currentBattle.waveIndex,
     playerIndex,
     realMoney,
+    waiveCost ? 1 : 0,
     rewardOptionKey,
     shopOptionKey,
     getPartyStateKey(party),
@@ -187,7 +191,7 @@ function buildRewardShopSnapshot(): WireRewardShopSnapshot | undefined {
     version: 1,
     context: "reward-shop",
     rewards: buildRewardChoices(phase.typeOptions, party, playerIndex),
-    shop: buildShopChoices(shopOptions, party, scoringMoney, reserveCost),
+    shop: buildShopChoices(shopOptions, party, eligibilityMoney, realMoney, reserveCost, waiveCost),
     shopMoney: realMoney,
     shopReserve: reserveCost,
   };
