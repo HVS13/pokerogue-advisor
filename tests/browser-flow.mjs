@@ -80,4 +80,35 @@ assert.match(rendered, /USE THUNDERBOLT → GYARADOS/);
 assert.match(rendered, /STRONG/);
 assert.match(rendered, /Strong offensive value/);
 
-console.log("PASS simulated bridge -> extension -> capture+battle decision -> overlay test");
+responseSnapshot = {
+  version: 1,
+  context: "reward-shop",
+  generatedAt: 125,
+  rewards: [
+    { id: "0:MULTI_LENS", name: "Multi Lens", score: 24000, reason: "priority Rogue reward", target: "Garchomp" },
+    { id: "1:EXP_CHARM", name: "EXP Charm", score: 16000, reason: "useful progression reward" },
+  ],
+  shop: [
+    { id: "0:REVIVE", name: "Revive", score: 95, cost: 1200, reason: "revives a fainted Pokemon", target: "Raichu", emergency: true, reserveCost: 1800, moneyAfterPurchase: 3800 },
+    { id: "1:POTION", name: "Potion", score: 120, cost: 200, reason: "heals meaningful HP loss", target: "Garchomp", emergency: false, reserveCost: 1800, moneyAfterPurchase: 4800 },
+  ],
+  shopMoney: 5000,
+  shopReserve: 1800,
+};
+requestSnapshot();
+snapshot = getLatestSnapshot();
+assert.equal(snapshot?.context, "reward-shop");
+recommendations = analyzeSnapshot(snapshot);
+assert.equal(recommendations[0].label, "PICK MULTI LENS");
+assert.equal(recommendations[1].label, "BUY REVIVE");
+assert.equal(recommendations[0].isDecision, true);
+assert.equal(recommendations[1].isDecision, true);
+renderAdvisor(snapshot, recommendations);
+rendered = documentElement.text();
+assert.match(rendered, /REWARD-SHOP/);
+assert.match(rendered, /PICK MULTI LENS/);
+assert.match(rendered, /BUY REVIVE/);
+assert.match(rendered, /Best target: Garchomp/);
+assert.match(rendered, /Emergency recovery need takes priority/);
+
+console.log("PASS simulated bridge -> extension -> capture+battle+reward-shop decisions -> overlay test");
