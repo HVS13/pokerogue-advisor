@@ -59,3 +59,47 @@ jobs:
             exit 1
           fi
           echo "PASS: advisor bridge introduced no new TypeScript errors into the real 2P source."
+
+  official-capture-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout advisor
+        uses: actions/checkout@v4
+        with:
+          path: advisor
+      - name: Checkout official PokeRogue beta
+        uses: actions/checkout@v4
+        with:
+          repository: pagefaultgames/pokerogue
+          ref: beta
+          path: game
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.9.0
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install official PokeRogue dependencies
+        working-directory: game
+        run: corepack pnpm install --frozen-lockfile
+      - name: Capture official upstream TypeScript baseline
+        working-directory: game
+        run: |
+          corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/official-tsc-before.txt" 2>&1 || true
+      - name: Install official capture adapter
+        run: node advisor/scripts/install-official.mjs game
+      - name: Typecheck official source with advisor capture adapter
+        working-directory: game
+        run: |
+          corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/official-tsc-after.txt" 2>&1 || true
+      - name: Reject new official TypeScript errors from advisor integration
+        shell: bash
+        run: |
+          sort -u "$RUNNER_TEMP/official-tsc-before.txt" > "$RUNNER_TEMP/official-tsc-before.sorted.txt"
+          sort -u "$RUNNER_TEMP/official-tsc-after.txt" > "$RUNNER_TEMP/official-tsc-after.sorted.txt"
+          comm -13 "$RUNNER_TEMP/official-tsc-before.sorted.txt" "$RUNNER_TEMP/official-tsc-after.sorted.txt" > "$RUNNER_TEMP/official-tsc-added.txt"
+          if [ -s "$RUNNER_TEMP/official-tsc-added.txt" ]; then
+            echo "Official advisor adapter introduced new TypeScript errors:"
+            cat "$RUNNER_TEMP/official-tsc-added.txt"
+            exit 1
+          fi
+          echo "PASS: official capture adapter introduced no new TypeScript errors."
