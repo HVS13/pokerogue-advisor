@@ -1,8 +1,8 @@
-# SolVolrund 2P adapter — Phase 1 capture bridge
+# SolVolrund 2P adapter
 
-This is the smallest end-to-end integration for `SolVolrund/pokerogue-2p-beta`.
+This integration adds read-only capture and battle advice to `SolVolrund/pokerogue-2p-beta`.
 
-It only exposes read-only capture-menu state. It does not press inputs or alter multiplayer messages.
+It does not press inputs and does not alter multiplayer messages.
 
 ## Fast install
 
@@ -14,29 +14,34 @@ node scripts/install-2p.mjs "C:\path\to\pokerogue-2p-beta"
 
 The path may point either to the outer `pokerogue-2p-beta` repository or directly to its `pokerogue-beta` game folder.
 
-The installer is cross-platform and idempotent: it copies the bridge and adds the required import only if it is missing. A PowerShell installer remains available under this folder as an alternative.
+The Node installer is cross-platform and idempotent. It performs three local source changes:
 
-## Manual install
+1. Copies `pokerogue-advisor-bridge.ts` into the game's `src/` folder.
+2. Adds one side-effect import to `src/main.ts`.
+3. Adds one small exported evaluation helper to `src/utils/battle-planner-ai.ts` and refactors the existing chooser to reuse the same scoring helper.
 
-Copy:
+The planner patch exposes the already-computed candidate scores without calling the seeded/random final-choice selector. The normal game chooser keeps using its existing selection logic.
 
-```text
-integrations/solvolrund-2p/pokerogue-advisor-bridge.ts
-```
-
-to:
-
-```text
-<2P repo>/pokerogue-beta/src/pokerogue-advisor-bridge.ts
-```
-
-Then add this side-effect import near the top of `<2P repo>/pokerogue-beta/src/main.ts`:
-
-```ts
-import "./pokerogue-advisor-bridge";
-```
+If the upstream planner block changes, the installer fails closed with an error instead of guessing how to patch it.
 
 Do not modify the multiplayer relay.
+
+## Reverting
+
+If the game checkout is a Git repository and you want to remove the local integration, restore these game files from Git:
+
+```text
+pokerogue-beta/src/main.ts
+pokerogue-beta/src/utils/battle-planner-ai.ts
+```
+
+and delete:
+
+```text
+pokerogue-beta/src/pokerogue-advisor-bridge.ts
+```
+
+Use your normal Git workflow if you already have unrelated local changes in those files.
 
 ## Test and build the advisor
 
@@ -57,32 +62,54 @@ corepack pnpm run start:dev:lan
 corepack pnpm run start:2p-ws:lan
 ```
 
-## Expected Phase 1 behavior
+## Capture behavior
 
-1. Outside the Poké Ball menu, the overlay tells you to open the ball menu.
-2. Open **Ball** during a catchable encounter.
-3. The overlay leads with a decision such as `USE ULTRA BALL NOW`, plus recommendation strength and a short reason.
-4. Ball percentages remain visible as supporting evidence.
-5. Near-equal odds prefer the cheaper resource. Example: 85.8% Ultra vs 86.0% Rogue recommends Ultra rather than wasting Rogue for 0.2 percentage points.
-6. Master-tier resources are preserved by default until target-value/team-fit data justifies them.
-7. In a multi-enemy 2P battle, each target is labeled separately.
-8. F8 toggles the overlay.
+During a catchable encounter, open **Ball**. The overlay can lead with decisions such as:
+
+```text
+THROW ULTRA BALL NOW
+WEAKEN WITH FALSE SWIPE
+APPLY SLEEP WITH SPORE
+SKIP RATTATA
+```
+
+Percentages remain supporting evidence. Near-equal odds prefer the cheaper resource, and Master-tier resources are gated by target value plus the reliability of non-premium balls.
+
+The bridge also sends portable party facts for conservative catch-value and replacement judgment. Half Party and Full Party modes use the game's actual `twoPlayerPartySize`.
+
+## Battle behavior
+
+On **Command** or **Fight**, the bridge runs the fork's existing one-turn battle planner evaluation and caches the result until the decision state changes.
+
+The overlay leads with a recommendation such as:
+
+```text
+USE THUNDERBOLT → GYARADOS
+Strength: Strong
+```
+
+Raw planner scores are supporting evidence, not win probability. Close planner scores are labeled `Slight` or `Equivalent` instead of pretending tiny score differences are certain.
+
+The advisor evaluation path deliberately does not call the planner's seeded/random final-choice selector, switch selector, or reposition selector. Opening the overlay must not consume battle RNG.
 
 ## Automated checks
 
-`npm test` currently covers:
+`npm test` covers:
 
 - TypeScript checks
-- capture decision/resource-conservation cases
-- multi-target labeling
+- capture decisions and resource conservation
+- safe weaken/status preparation decisions
+- conservative catch-value/replacement scoring
+- Master Ball release thresholds
+- battle decision strength and target formatting
+- multi-target decision ordering
 - cross-origin message rejection
-- simulated game bridge → extension → decision → overlay flow
-- 2P bridge compatibility fixture
-- installer idempotency
+- simulated bridge → extension → capture/battle decision → overlay flow
+- installer and planner-hook idempotency
 - built extension bundle smoke test
 
-GitHub Actions runs the same suite on pushes and pull requests.
+GitHub Actions also checks out the real current `SolVolrund/pokerogue-2p-beta` source, captures its existing TypeScript error baseline, installs this integration, and fails if the advisor introduces any new TypeScript errors.
 
-## Remaining live verification
+## Remaining human acceptance
 
-A real running `SolVolrund/pokerogue-2p-beta` checkout still needs one end-to-end browser encounter to verify that the live game emits the same data shape as the compatibility fixture and that the displayed probability matches a real encounter.
+Automated tests cannot verify visual fit and feel inside your exact Chrome/Edge + Phaser + LAN session. That final acceptance can be done later; development does not need to wait for it.
