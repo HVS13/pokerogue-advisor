@@ -2,6 +2,7 @@ import type { AdvisorRecommendation, AdvisorSnapshot } from "../core/types.js";
 
 let root: HTMLDivElement | undefined;
 let visible = true;
+const SHORTCUT_HELP = "F8: show/hide · Shift+F8: export diagnostics";
 
 function addText(parent: HTMLElement, text: string, opacity?: string): HTMLDivElement {
   const line = document.createElement("div");
@@ -68,7 +69,7 @@ export function renderAdvisor(snapshot: AdvisorSnapshot, recommendations: Adviso
   const shown = snapshot.context === "capture" ? recommendations : recommendations.slice(0, 5);
   if (shown.length === 0) {
     addText(el, snapshot.notice ?? "Waiting for a decision...", ".7");
-    addText(el, "F8: show/hide", ".5").style.marginTop = "8px";
+    addText(el, SHORTCUT_HELP, ".5").style.marginTop = "8px";
     return;
   }
 
@@ -106,5 +107,5 @@ export function renderAdvisor(snapshot: AdvisorSnapshot, recommendations: Adviso
     el.appendChild(card);
   }
 
-  addText(el, "F8: show/hide", ".5").style.marginTop = "8px";
+  addText(el, SHORTCUT_HELP, ".5").style.marginTop = "8px";
 }
