@@ -38,7 +38,7 @@ function installListener(): void {
   listenerInstalled = true;
 
   window.addEventListener("message", event => {
-    if (event.source !== window) return;
+    if (event.source !== window || event.origin !== window.location.origin) return;
     const data = event.data as Partial<AdvisorSnapshotMessage> | undefined;
     if (data?.source !== "pokerogue-advisor-game" || data.type !== "snapshot" || !isSnapshot(data.snapshot)) {
       return;
@@ -53,7 +53,7 @@ export function requestSnapshot(): void {
     source: "pokerogue-advisor-extension",
     type: "request-snapshot",
   };
-  window.postMessage(request, "*");
+  window.postMessage(request, window.location.origin);
 }
 
 export function getLatestSnapshot(): AdvisorSnapshot | undefined {
