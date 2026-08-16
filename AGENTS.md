@@ -176,6 +176,8 @@ Candidates:
 | Official PokeRogue is optional Phase 5 | Compatibility is valuable but should not create early scope drag. |
 | Read-only MVP | Much easier to trust, debug, and support than an autonomous bot. |
 | `window.postMessage` bridge | Avoids depending on browser-extension isolated-world access to page-owned objects. |
+| Adapter supplies exact per-ball capture probability | Critical-capture chance depends on modified catch rate, which changes with the selected ball. |
+| Capture snapshots may contain multiple targets | 2P battles can expose multiple catchable enemies before target selection; advice must not silently refer to the wrong target. |
 | No MCTS in MVP | Existing game logic can deliver most of the value much faster. |
 
 ## Current state
@@ -183,14 +185,20 @@ Candidates:
 Confirmed:
 
 - TypeScript advisor scaffold exists.
-- Browser overlay and snapshot message boundary exist.
+- Browser overlay and origin-checked snapshot message boundary exist.
+- Missing game bridge now produces an obvious overlay notice instead of failing silently.
 - Core capture, battle ranking, reward and shop functions exist as standalone logic.
+- Capture core accepts exact adapter-supplied probability per ball and multiple target snapshots.
+- A Phase 1 SolVolrund 2P capture bridge source exists under `integrations/solvolrund-2p/`.
+- The adapter reads the active command player's ball inventory and labels multiple active wild targets separately.
+- Advisor core/extension passes local `tsc -p tsconfig.json --noEmit` after the Phase 1 changes.
 - Primary and official PokeRogue both retain closely related capture/reward game structures.
 
 Not yet confirmed working end-to-end:
 
-- Live 2P bridge.
+- The 2P bridge compiling inside an actual `SolVolrund/pokerogue-2p-beta` checkout.
 - Any live recommendation rendered from an actual running game.
+- A manual comparison between displayed capture percentage and a real encounter.
 - Official PokeRogue adapter.
 - Packaged extension installation after a clean `npm install && npm run build` on a normal development machine.
 
@@ -199,11 +207,21 @@ Not yet confirmed working end-to-end:
 | Problem | Root cause / finding | Resolution |
 |---|---|---|
 | Initial extension plan assumed direct `window` access | Content scripts run in an isolated JS world | Use a serialized `window.postMessage` boundary. |
+| Capture model treated critical chance as one target-wide value | PokeRogue critical-capture chance depends on modified catch rate, so it varies by ball | Let the game adapter supply exact final probability per ball; keep generic math only as fallback. |
+| A capture snapshot assumed one enemy target | In 2P battles the Ball command may have multiple valid enemies before `SelectTargetPhase` | Support `captureTargets[]` and label every recommendation with its target when needed. |
 | Full npm bundle was not validated in the assistant runtime | Runtime could not reach npm registry | Type-check locally where possible; validate full install/build on a normal dev machine before claiming release readiness. |
 
 ## What's next
 
-Implement **Phase 1 only**: a minimal 2P capture bridge that emits one live capture snapshot and verify it against an actual encounter before expanding scope.
+Finish **Phase 1 only** on a real game checkout:
+
+1. Copy `integrations/solvolrund-2p/pokerogue-advisor-bridge.ts` into `pokerogue-beta/src/`.
+2. Add `import "./pokerogue-advisor-bridge";` to `pokerogue-beta/src/main.ts`.
+3. Run the 2P game's typecheck/build.
+4. Build/load the Advisor extension.
+5. Open one live wild encounter and verify the displayed percentages against the game's capture inputs.
+
+Do not begin battle/reward/shop bridge work until this vertical slice succeeds.
 
 ## Session protocol
 
