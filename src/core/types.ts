@@ -1,4 +1,4 @@
-export type AdvisorContext = "battle" | "capture" | "reward" | "shop" | "party" | "idle";
+export type AdvisorContext = "battle" | "capture" | "reward" | "shop" | "reward-shop" | "party" | "idle";
 export type DecisionStrength = "strong" | "moderate" | "slight" | "equivalent" | "situational";
 
 export interface AdvisorRecommendation {
@@ -106,6 +106,9 @@ export interface ChoiceCandidate {
   reason?: string;
   cost?: number;
   target?: string;
+  emergency?: boolean;
+  reserveCost?: number;
+  moneyAfterPurchase?: number;
 }
 
 export interface AdvisorSnapshot {
@@ -122,6 +125,8 @@ export interface AdvisorSnapshot {
   captureTargets?: CaptureSnapshot[];
   rewards?: ChoiceCandidate[];
   shop?: ChoiceCandidate[];
+  shopMoney?: number;
+  shopReserve?: number;
   /** Human-readable bridge/install state for idle snapshots. */
   notice?: string;
   generatedAt: number;
