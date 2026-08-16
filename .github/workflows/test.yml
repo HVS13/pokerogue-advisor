@@ -37,8 +37,25 @@ jobs:
       - name: Install PokeRogue dependencies
         working-directory: game/pokerogue-beta
         run: corepack pnpm install --frozen-lockfile
+      - name: Capture upstream TypeScript baseline
+        working-directory: game/pokerogue-beta
+        run: |
+          corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/tsc-before.txt" 2>&1 || true
       - name: Install advisor bridge into real 2P source
         run: node advisor/scripts/install-2p.mjs game
       - name: Typecheck real 2P source with advisor bridge
         working-directory: game/pokerogue-beta
-        run: corepack pnpm typecheck
+        run: |
+          corepack pnpm exec tsc --pretty false > "$RUNNER_TEMP/tsc-after.txt" 2>&1 || true
+      - name: Reject new TypeScript errors from advisor integration
+        shell: bash
+        run: |
+          sort -u "$RUNNER_TEMP/tsc-before.txt" > "$RUNNER_TEMP/tsc-before.sorted.txt"
+          sort -u "$RUNNER_TEMP/tsc-after.txt" > "$RUNNER_TEMP/tsc-after.sorted.txt"
+          comm -13 "$RUNNER_TEMP/tsc-before.sorted.txt" "$RUNNER_TEMP/tsc-after.sorted.txt" > "$RUNNER_TEMP/tsc-added.txt"
+          if [ -s "$RUNNER_TEMP/tsc-added.txt" ]; then
+            echo "Advisor integration introduced new TypeScript errors:"
+            cat "$RUNNER_TEMP/tsc-added.txt"
+            exit 1
+          fi
+          echo "PASS: advisor bridge introduced no new TypeScript errors into the real 2P source."
