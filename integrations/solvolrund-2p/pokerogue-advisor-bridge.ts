@@ -190,8 +190,8 @@ function buildWeakeningPreparations(
         warning: "Damage is a rough non-critical estimate; unusual modifiers can change the real result.",
       };
     })
-    .filter((option): option is WireCapturePreparation => !!option)
-    .sort((a, b) => (b.estimatedDamageRatio ?? 0) - (a.estimatedDamageRatio ?? 0))
+    .filter((option): option is NonNullable<typeof option> => option !== undefined)
+    .sort((a, b) => b.estimatedDamageRatio - a.estimatedDamageRatio)
     .slice(0, 2);
 }
 
@@ -257,7 +257,7 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
   const currentPhase = globalScene.phaseManager.getCurrentPhase();
   if (!currentPhase?.is("CommandPhase")) return;
 
-  const commandPhase = currentPhase as CommandPhase;
+  const commandPhase = currentPhase as unknown as CommandPhase;
   const playerIndex = globalScene.getPlayerIndexForFieldSlot(commandPhase.getFieldIndex());
   const counts = globalScene.getPlayerPokeballCounts(playerIndex);
   const activePokemon = commandPhase.getPokemon();
