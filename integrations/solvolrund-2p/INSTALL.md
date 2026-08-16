@@ -4,7 +4,19 @@ This is the smallest end-to-end integration for `SolVolrund/pokerogue-2p-beta`.
 
 It only exposes read-only capture-menu state. It does not press inputs or alter multiplayer messages.
 
-## Install into the game source
+## Fast install on Windows
+
+From the advisor repository root, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\integrations\solvolrund-2p\install-into-2p.ps1 -GameRoot "C:\path\to\pokerogue-2p-beta"
+```
+
+`-GameRoot` may point either to the outer `pokerogue-2p-beta` repository or directly to its `pokerogue-beta` game folder.
+
+The installer is idempotent: it copies the bridge and adds the required import only if it is missing.
+
+## Manual install
 
 From this repository, copy:
 
@@ -52,7 +64,7 @@ Load `extension/` as an unpacked Chrome/Edge extension, then reload the game pag
 
 1. Outside the Poké Ball menu, the overlay says to open the ball menu.
 2. Open **Ball** during a catchable encounter.
-3. The overlay lists every available ball with an estimated catch percentage.
+3. The overlay lists every currently usable ball with an estimated catch percentage.
 4. In a multi-enemy 2P battle, each target is labeled separately so advice cannot silently refer to the wrong wild Pokémon.
 5. F8 toggles the overlay.
 
@@ -71,4 +83,4 @@ The adapter calculates critical-capture probability separately for each ball bec
 
 ## Current limitation
 
-The bridge is stored here because this GitHub connection has no push permission to `SolVolrund/pokerogue-2p-beta`. It must be copied into that game checkout (or applied in a fork you control) before live recommendations can work.
+The bridge is stored here because this GitHub connection has no push permission to `SolVolrund/pokerogue-2p-beta`. It must be installed into that game checkout (or applied in a fork you control) before live recommendations can work.
