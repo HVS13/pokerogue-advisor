@@ -10,7 +10,7 @@ Build a read-only on-screen advisor that answers **what should I do now, how str
 
 ### Decision first, numbers second
 
-Every decision surface should answer, in this order:
+Every decision surface should answer, in order:
 
 1. What should I do?
 2. How strong is that recommendation?
@@ -21,7 +21,7 @@ Raw percentages and planner scores are evidence, not the primary output. Treat p
 
 ### Pareto principle
 
-Prioritize the small set of features that produces most player value:
+Prioritize the few features that create most player value:
 
 1. Capture decision: throw / prepare / skip + sensible ball.
 2. Battle move + target decision.
@@ -49,9 +49,9 @@ Do not delay these for MCTS, elaborate settings, perfect edge cases, OCR, or vis
 - Capture percentages may be called probability only when calculated from actual game mechanics.
 - Battle planner scores are not win probability and must not be converted into invented confidence percentages.
 - Use qualitative strength: **Strong / Moderate / Slight / Equivalent / Situational**.
-- Advisor analysis must not consume PokeRogue battle RNG.
+- Advisor analysis must not consume or advance PokeRogue seeded RNG.
 - Primary target: `SolVolrund/pokerogue-2p-beta`.
-- Optional later target: `pagefaultgames/pokerogue`.
+- Secondary optional target: `pagefaultgames/pokerogue`.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ Do not delay these for MCTS, elaborate settings, perfect edge cases, OCR, or vis
 2. **Advisor core** performs game-agnostic decision utility, ranking, thresholds, and explanations.
 3. **Overlay** renders decisions and has no direct Phaser knowledge.
 
-Source-specific code stays in adapters. Core/overlay should be reusable by the official PokeRogue adapter later.
+Source-specific code stays in adapters. Core/overlay must remain reusable by the official PokeRogue adapter.
 
 ## Decision model
 
@@ -72,18 +72,7 @@ Candidate actions:
 - apply status first
 - skip target
 
-Inputs already supported:
-
-- exact per-ball probability
-- ball inventory/scarcity
-- safe weakening candidates
-- catch-useful status candidates
-- active-Pokémon HP risk
-- party capacity (3 or 6 in the 2P fork)
-- target/party BST and types
-- duplicate species
-- shiny status
-- conservative target-value / replacement estimate
+Supported inputs include exact per-ball probability, inventory/scarcity, safe weakening candidates, catch-useful status candidates, active-Pokémon HP risk, party capacity, target/party BST and types, duplicate species, shiny status, and conservative replacement value.
 
 Current catch-value logic deliberately avoids auto-skipping unique low-current-BST Pokémon because unevolved species can be undervalued.
 
@@ -91,11 +80,15 @@ Current catch-value logic deliberately avoids auto-skipping unique low-current-B
 
 Primary output is `USE <MOVE> → <TARGET>`. Existing 2P one-turn planner scores and breakdowns support the decision.
 
-The advisor uses a deterministic scoring export added to `battle-planner-ai.ts`. It **must not call** the seeded/random final move chooser, switch chooser, or reposition chooser.
+The advisor uses a deterministic scoring export added to `battle-planner-ai.ts`. It must not call the seeded/random final move chooser, switch chooser, or reposition chooser.
 
 ### Reward/shop
 
-Primary outputs will be `PICK`, `BUY`, `SKIP`, `REROLL`, or `SAVE`, with concise reasons. Reuse the fork's existing computer-partner reward/recovery scoring where practical.
+Primary outputs are `PICK`, `BUY`, `SKIP`, or `SAVE`, with concise reasons.
+
+The 2P reward adapter reuses the fork's existing reward/recovery scoring. Reward scoring can use random target fallbacks internally, so every advisor evaluation snapshots and restores `Phaser.Math.RND.state()` in `finally`.
+
+Shop recommendations use exact adjusted shop prices, emergency status, player money, and the fork's recovery reserve logic. With the game's waive-cost debug override, eligibility matches the game's unlimited-money behavior while displayed money remains the player's real unchanged money.
 
 ## MVP scope
 
@@ -111,6 +104,7 @@ Primary outputs will be `PICK`, `BUY`, `SKIP`, `REROLL`, or `SAVE`, with concise
 - Reward and shop decisions.
 - F8 browser overlay.
 - Automatic tests against the real current 2P source.
+- Thin official PokeRogue compatibility adapter after the primary 2P value loop is complete.
 
 ### OUT
 
@@ -119,7 +113,7 @@ Primary outputs will be `PICK`, `BUY`, `SKIP`, `REROLL`, or `SAVE`, with concise
 - MCTS / Monte Carlo battle win rates.
 - Perfect hidden-information prediction.
 - OCR as the primary integration method.
-- Official PokeRogue parity if it slows the primary MVP.
+- Advanced official parity before capture-only compatibility works.
 
 ## Build plan
 
@@ -141,55 +135,73 @@ Implemented and automated-tested:
 
 Human acceptance deferred: visual fit/feel in the user's actual browser and manual comparison of one displayed probability against one live encounter.
 
-### Phase 2 — Battle move decision [ACTIVE]
+### Phase 2 — Battle move decision [DEVELOPER COMPLETE]
 
-Implemented in current development slice:
+Implemented and automated-tested:
 
 - deterministic planner scoring export
-- existing game chooser refactored to reuse the same scoring helper without changing chooser behavior
+- normal game chooser still uses its existing final selection logic
 - no RNG in advisor evaluation path
 - cached battle analysis keyed to decision state
 - move + target serialization
-- decision-first `USE <MOVE> → <TARGET>` output
+- `USE <MOVE> → <TARGET>` decision
 - qualitative strength from planner-score gap
 - planner breakdown explanations
 - simulated battle snapshot → overlay test
 - real 2P source integration compile
 
-Still optional/later within battle quality:
+Deferred until evidence says they are high-value: switch advice, exact damage/KO probability, richer multi-ally coordination.
 
-- switch recommendation
-- exact damage ranges / KO probability
-- richer multi-ally coordination
+### Phase 3 — Reward + shop decisions [DEVELOPER COMPLETE]
 
-Do not block Phase 3 on these unless real playtesting shows they are high-value.
+Implemented and automated-tested:
 
-### Phase 3 — Reward + shop decisions [NEXT]
+- live modifier reward options from `SelectModifierPhase`
+- live adjusted recovery shop options
+- decision-first `PICK` / `SKIP REWARD`
+- decision-first `BUY` / `SAVE MONEY`
+- emergency recovery priority
+- target Pokémon/move explanations
+- player money and recovery reserve context
+- one-purchase-then-reassess guidance
+- reward RNG state preservation
+- cross-platform/idempotent second sidecar installation
+- simulated reward-shop snapshot → overlay test
+- real SolVolrund source integration compile
 
-Done criteria:
+Human acceptance remains deferred and does not block development.
 
-- live reward options and shop options serialized
-- existing computer-partner reward/recovery scoring reused without random choice
-- overlay leads with `PICK` / `BUY` / `SKIP` / `SAVE`
-- reasons include target and money/reserve context when available
-- real-source CI green
+### Phase 4 — Party/capture quality [PARTLY FOLDED INTO PHASE 1]
 
-### Phase 4 — Capture/party quality improvements
+Already present: basic type coverage, duplicate-species penalty, current BST comparison, open-slot handling, shiny protection, and replacement candidate.
 
-Only if observed failures justify it:
+Only improve further if playtesting proves value:
 
 - evolution potential
 - abilities/natures/IVs
 - role/coverage sophistication beyond basic types/BST
 - better replacement scoring
 
-### Phase 5 — Official PokeRogue adapter
+### Phase 5 — Official PokeRogue adapter [ACTIVE]
 
-Only after Phases 1–3 are stable on the primary fork. Same core/overlay, separate thin adapter.
+Target: `pagefaultgames/pokerogue`, current default branch `beta`.
 
-### Phase 6 — Advanced battle quality
+Pareto slice 5A: **capture-only compatibility**.
 
-Candidates only after basic value is proven:
+Done criteria:
+
+- same advisor core/overlay unchanged
+- thin official adapter emits compatible capture snapshots
+- exact official capture probability matches the current official formula
+- ball inventory and target state come from live official game objects
+- official adapter installer is isolated from the 2P installer
+- official-source CI verifies the adapter introduces no new TypeScript errors
+
+Do not add official battle/reward/shop support until capture-only compatibility is green.
+
+### Phase 6 — Advanced quality
+
+Only after the basic advisor loop is proven useful in real play:
 
 - exact damage ranges
 - KO probability
@@ -203,33 +215,34 @@ Candidates only after basic value is proven:
 | Decision first, numbers second | Reduce player decision burden rather than move calculations into an overlay. |
 | Separate probability from utility | Highest success percentage is not always the best practical action. |
 | Treat near-equal choices as equivalent | Avoid fake precision such as 86.0% vs 85.8%. |
-| Separate adapters from core | Supports 2P and official PokeRogue without forking the whole advisor. |
+| Separate adapters from core | Support 2P and official PokeRogue without forking the whole advisor. |
 | Read-only MVP | Easier to trust, debug, and keep multiplayer-safe. |
 | `window.postMessage` boundary | Browser content scripts should not depend on direct page-owned object access. |
 | Exact probability comes from adapter | Critical-capture chance varies with modified catch rate and therefore by ball. |
 | All multi-target decisions render before evidence | Evidence for target 1 must never hide target 2's decision. |
 | No numeric battle-confidence percentage | Planner score gaps are not calibrated probabilities. |
 | Deterministic planner evaluation export | Reuse the fork's intelligence without consuming seeded battle RNG. |
+| Preserve/restore RNG around reward scoring | Existing reward target fallbacks can call Phaser's seeded RNG. |
 | Planner installer fails closed | Upstream source drift should cause a clear error, not a guessed patch. |
-| No MCTS in MVP | Existing game logic provides most of the value much faster. |
+| No MCTS in MVP | Existing game logic provides most value much faster. |
 
 ## Automated testing
 
 Every push/PR runs:
 
 - TypeScript checks
-- core capture/catch-value/battle decision tests
+- capture/catch-value/battle/reward-shop decision tests
 - browser-message and overlay simulation
 - cross-origin message rejection
 - extension bundle smoke test
-- installer idempotency
-- planner-hook idempotency/no-RNG assertion
+- installer/sidecar/planner-hook idempotency
+- planner no-RNG assertion
 - real current `SolVolrund/pokerogue-2p-beta` checkout + dependency install
 - upstream TypeScript error baseline
 - advisor install into real source
 - failure if advisor introduces any new TypeScript errors
 
-The baseline comparison is necessary because the upstream repository can have pre-existing clean-checkout TypeScript errors when asset JSON files are absent.
+The baseline comparison is necessary because the upstream 2P repository can have pre-existing clean-checkout TypeScript errors when asset JSON files are absent.
 
 ## Debugging history
 
@@ -240,13 +253,16 @@ The baseline comparison is necessary because the upstream repository can have pr
 | Single-target capture model | 2P can have multiple catchable enemies | `captureTargets[]`; decisions ordered before evidence. |
 | Percentage-only product | Probability does not decide resource/risk tradeoffs | Added decision utility and qualitative strength. |
 | 86.0% beat 85.8% and wasted a better ball | Raw maximum ignored practical equivalence | Equivalence margins + resource rank. |
-| Valuable target could over-trigger Master Ball | Target value alone ignored already-good normal odds | Premium release thresholds depend on both target value and non-premium reliability. |
+| Valuable target could over-trigger Master Ball | Target value alone ignored already-good normal odds | Premium release thresholds depend on target value and non-premium reliability. |
 | Naive battle confidence would invent percentages | Planner scores are not calibrated probability | Qualitative strength only; raw scores as evidence. |
-| Full upstream `tsc` failed in CI | Missing upstream asset JSON, unrelated to advisor | Compare before/after TypeScript error sets and reject only new advisor errors. |
+| Reward scoring could advance seeded RNG | Random target fallbacks use `Phaser.Math.RND.pick` | Save/restore `Phaser.Math.RND.state()` around every advisor reward evaluation. |
+| Reward sidecar failed real-source exact-optional typing | Target helper was invoked inside an optional spread and inferred `string | undefined` | Compute target once and emit the property only when definitely present. |
+| Waived shop costs produced fake huge post-purchase money | Unlimited money is only an eligibility mechanism | Keep unlimited eligibility but display cost 0 and unchanged real player money. |
+| Full upstream 2P `tsc` failed in CI | Missing upstream asset JSON, unrelated to advisor | Compare before/after TypeScript error sets and reject only new advisor errors. |
 
 ## What's next
 
-Finish and merge Phase 2 move advice after the short advisor suite is green, then start **Phase 3 reward/shop**. Human browser acceptance remains deferred and should not block development.
+Build **Phase 5A official capture-only adapter**, add official-source compatibility CI, and keep the existing core/overlay unchanged. Human browser acceptance remains deferred.
 
 ## Session protocol
 
