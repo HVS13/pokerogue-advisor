@@ -29,17 +29,24 @@ export interface CaptureBallCandidate {
   name: string;
   multiplier: number;
   count: number;
+  /** Exact probability from 0 to 1 when supplied by a game adapter. */
+  probability?: number;
 }
 
 export interface CaptureSnapshot {
+  /** Stable target id from the game when available. */
+  targetId?: number;
   speciesName: string;
   hp: number;
   maxHp: number;
   catchRate: number;
   statusMultiplier: number;
   shinyMultiplier: number;
-  /** Probability from 0 to 1, not the game's raw 0..255/256 critical-capture value. */
-  criticalCaptureProbability: number;
+  /**
+   * Fallback critical-capture probability from 0 to 1.
+   * Prefer per-ball `probability` from the game adapter because critical chance can vary by ball.
+   */
+  criticalCaptureProbability?: number;
   balls: CaptureBallCandidate[];
   /** Team-fit score from 0 to 100. */
   teamFitScore?: number;
@@ -63,8 +70,13 @@ export interface AdvisorSnapshot {
     opponentNames: string[];
     moves: BattleMoveCandidate[];
   };
+  /** Single-target compatibility field. */
   capture?: CaptureSnapshot;
+  /** Preferred capture representation when more than one enemy can be targeted. */
+  captureTargets?: CaptureSnapshot[];
   rewards?: ChoiceCandidate[];
   shop?: ChoiceCandidate[];
+  /** Human-readable bridge/install state for idle snapshots. */
+  notice?: string;
   generatedAt: number;
 }
