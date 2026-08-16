@@ -26,6 +26,7 @@ jobs:
             scripts/install-official.mjs
             integrations/solvolrund-2p/
             integrations/pagefaultgames-official/
+            QUICKSTART.md
             README.md
             ROADMAP.md
 
