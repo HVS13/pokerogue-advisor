@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  advisor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,3 +15,30 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run build
+
+  solvolrund-2p-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout advisor
+        uses: actions/checkout@v4
+        with:
+          path: advisor
+      - name: Checkout PokeRogue 2P
+        uses: actions/checkout@v4
+        with:
+          repository: SolVolrund/pokerogue-2p-beta
+          ref: master
+          path: game
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.9.0
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install PokeRogue dependencies
+        working-directory: game/pokerogue-beta
+        run: corepack pnpm install --frozen-lockfile
+      - name: Install advisor bridge into real 2P source
+        run: node advisor/scripts/install-2p.mjs game
+      - name: Typecheck real 2P source with advisor bridge
+        working-directory: game/pokerogue-beta
+        run: corepack pnpm typecheck
