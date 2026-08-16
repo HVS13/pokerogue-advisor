@@ -60,13 +60,20 @@ Automated coverage includes:
 - installer/sidecar/planner-hook idempotency
 - real current SolVolrund source compatibility
 - real current Pagefault Games official source compatibility
+- bounded/deduplicated acceptance recording
+- deterministic recorded-session replay verification
 
 Acceptance tooling:
 
 - `integrations/solvolrund-2p/doctor.mjs`
 - `integrations/pagefaultgames-official/doctor.mjs`
+- automatic in-memory recorder for the last 100 meaningful decision states
+- `Shift+F8` local JSON export
+- `npm run replay -- <session.json>` developer replay verifier
 - `QUICKSTART.md`
 - `DIAGNOSTICS.md`
+
+The recorder adds no telemetry, backend, browser storage, or extra extension permissions. It ignores idle states and timestamp-only repeats.
 
 Packaging:
 
@@ -86,7 +93,7 @@ When convenient later:
 2. run the appropriate doctor command
 3. launch the game
 4. verify overlay fit/feel and one live capture probability
-5. report any recommendation that looks wrong or unhelpful
+5. if advice looks wrong or confusing, press `Shift+F8` and send the exported session JSON
 
 Development does not need to wait for this acceptance, but **new advanced AI features should wait for real-play evidence** so the project stays Pareto-focused.
 
@@ -94,6 +101,6 @@ Development does not need to wait for this acceptance, but **new advanced AI fea
 
 Do not add MCTS, exact damage/KO simulation, switch advice, or full official parity by default. Add the next feature only when one of these becomes true:
 
-- acceptance testing exposes a concrete decision failure
+- acceptance testing exposes a concrete decision failure, preferably with a recorded session
 - upstream compatibility breaks
 - a missing feature repeatedly forces the player to make a high-value decision manually
