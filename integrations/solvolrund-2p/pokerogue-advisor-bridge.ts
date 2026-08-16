@@ -1,8 +1,10 @@
 /**
  * PokeRogue Advisor bridge for SolVolrund/pokerogue-2p-beta.
  *
- * Copy this file to `pokerogue-beta/src/pokerogue-advisor-bridge.ts` and import it once from `src/main.ts`.
- * It is read-only: it serializes capture-menu state and never sends game inputs.
+ * Install with `node scripts/install-2p.mjs <game-root>` so the bridge and the
+ * deterministic planner-evaluation export are applied together.
+ *
+ * The integration is read-only. It serializes decision state and never sends game inputs.
  */
 import type { PlayerIndex } from "#app/battle-scene";
 import { timedEventManager } from "#app/global-event-manager";
@@ -17,9 +19,25 @@ import { MoveCategory } from "#enums/move-category";
 import { PokeballType } from "#enums/pokeball";
 import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
-import type { EnemyPokemon, PlayerPokemon } from "#field/pokemon";
+import type { EnemyPokemon, PlayerPokemon, Pokemon } from "#field/pokemon";
 import type { CommandPhase } from "#phases/command-phase";
+import { getPlannerAdvisorMoveEvaluations } from "#utils/battle-planner-ai";
 import { estimateComputerPartnerMoveDamageRatio } from "#utils/computer-partner-capture-ai";
+
+interface WireBattleMove {
+  id: string;
+  name: string;
+  plannerScore: number;
+  target?: string;
+  reasons?: string[];
+  warnings?: string[];
+}
+
+interface WireBattle {
+  actorName: string;
+  opponentNames: string[];
+  moves: WireBattleMove[];
+}
 
 interface WireCaptureBall {
   id: string;
@@ -71,7 +89,8 @@ interface WireCaptureTarget {
 
 interface WireSnapshot {
   version: 1;
-  context: "capture" | "idle";
+  context: "battle" | "capture" | "idle";
+  battle?: WireBattle;
   captureTargets?: WireCaptureTarget[];
   notice?: string;
   generatedAt: number;
@@ -94,6 +113,9 @@ const ADVISOR_BALL_TYPES = [
   PokeballType.MASTER_BALL,
 ] as const;
 
+let cachedBattleKey: string | undefined;
+let cachedBattle: WireBattle | undefined;
+
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
@@ -110,6 +132,96 @@ function buildPartyFacts(playerIndex: PlayerIndex): WireCapturePartyMember[] {
     baseStatTotal: pokemon.species.getBaseStatTotal(),
     types: getSpeciesTypes(pokemon),
   }));
+}
+
+function getBattleTargetName(targetIndex: number, battlers: Pokemon[]): string {
+  return battlers.find(pokemon => Number(pokemon.getBattlerIndex()) === targetIndex)?.getNameToRender()
+    ?? `Target ${targetIndex}`;
+}
+
+function getPlannerReasonEntries(
+  breakdown: ReturnType<typeof getPlannerAdvisorMoveEvaluations>[number]["breakdown"],
+): string[] {
+  if (!breakdown) return [];
+
+  const entries: Array<[number, string]> = [
+    [breakdown.attack, "Strong offensive value."],
+    [breakdown.threat, "Reduces an immediate threat."],
+    [breakdown.healing, "Useful recovery value."],
+    [breakdown.setup, "Useful setup value."],
+    [breakdown.sideSupport, "Supports your side."],
+    [breakdown.enemyStatus, "Useful disruption/status pressure."],
+    [breakdown.protect, "Defensive/protect value."],
+    [breakdown.benefit, "Good overall move benefit."],
+  ];
+
+  return entries
+    .filter(([score]) => score >= 8)
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, 2)
+    .map(([, reason]) => reason);
+}
+
+function getBattleStateKey(commandPhase: CommandPhase, actor: PlayerPokemon): string {
+  const battlers = [...globalScene.getPlayerField(), ...globalScene.getEnemyField()]
+    .filter(pokemon => pokemon.isActive(true));
+  const battlerState = battlers
+    .map(pokemon => `${pokemon.id}:${pokemon.hp}:${pokemon.status?.effect ?? 0}`)
+    .join(",");
+  const moveState = actor.getMoveset()
+    .map(move => `${move.moveId}:${move.ppUsed}`)
+    .join(",");
+
+  return [
+    globalScene.currentBattle?.turn ?? -1,
+    commandPhase.getFieldIndex(),
+    actor.id,
+    actor.hp,
+    actor.status?.effect ?? 0,
+    moveState,
+    battlerState,
+  ].join("|");
+}
+
+function getBattleState(): WireBattle | undefined {
+  const mode = globalScene?.ui?.getMode();
+  if (mode !== UiMode.COMMAND && mode !== UiMode.FIGHT) return;
+
+  const currentPhase = globalScene.phaseManager.getCurrentPhase();
+  if (!currentPhase?.is("CommandPhase")) return;
+
+  const commandPhase = currentPhase as unknown as CommandPhase;
+  const actor = commandPhase.getPokemon();
+  const key = getBattleStateKey(commandPhase, actor);
+  if (key === cachedBattleKey && cachedBattle) return cachedBattle;
+
+  const movePool = actor.getMoveset().filter(move => move.isUsable(actor, false, true)?.[0] ?? false);
+  const evaluations = getPlannerAdvisorMoveEvaluations(actor, movePool);
+  const battlers = [...globalScene.getPlayerField(), ...globalScene.getEnemyField()]
+    .filter(pokemon => pokemon.isActive(true));
+  const opponents = globalScene.getEnemyField().filter(pokemon => pokemon.isActive(true) && !pokemon.isFainted());
+
+  const battle: WireBattle = {
+    actorName: actor.getNameToRender(),
+    opponentNames: opponents.map(pokemon => pokemon.getNameToRender()),
+    moves: evaluations.map(evaluation => {
+      const targets = evaluation.targets.map(target => getBattleTargetName(Number(target), battlers));
+      return {
+        id: `${Number(evaluation.moveId)}:${evaluation.targets.map(Number).join("-")}`,
+        name: evaluation.moveName,
+        plannerScore: evaluation.score,
+        ...(targets.length > 0 ? { target: targets.join(", ") } : {}),
+        reasons: getPlannerReasonEntries(evaluation.breakdown),
+        ...(evaluation.result?.toLowerCase().includes("waste")
+          ? { warnings: ["Planner detected a possible wasted-turn outcome."] }
+          : {}),
+      };
+    }),
+  };
+
+  cachedBattleKey = key;
+  cachedBattle = battle;
+  return battle;
 }
 
 function getModifiedCatchRate(
@@ -335,10 +447,20 @@ function buildSnapshot(): WireSnapshot {
       };
     }
 
+    const battle = getBattleState();
+    if (battle) {
+      return {
+        version: 1,
+        context: "battle",
+        battle,
+        generatedAt: Date.now(),
+      };
+    }
+
     return {
       version: 1,
       context: "idle",
-      notice: "Open the Poké Ball menu to see live capture advice.",
+      notice: "Open a battle command or Poké Ball menu to see live advice.",
       generatedAt: Date.now(),
     };
   } catch (error) {
@@ -346,7 +468,7 @@ function buildSnapshot(): WireSnapshot {
     return {
       version: 1,
       context: "idle",
-      notice: "Advisor bridge is installed, but capture state is not ready yet.",
+      notice: "Advisor integration is installed, but decision state is not ready yet.",
       generatedAt: Date.now(),
     };
   }
@@ -370,4 +492,4 @@ window.addEventListener("message", event => {
   postSnapshot(buildSnapshot());
 });
 
-console.info("[PokeRogue Advisor] 2P capture bridge installed");
+console.info("[PokeRogue Advisor] 2P battle/capture bridge installed");
