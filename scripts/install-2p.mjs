@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ADVISOR_IMPORT = 'import "./pokerogue-advisor-bridge";';
+const REWARD_ADVISOR_IMPORT = 'import "./pokerogue-advisor-reward-bridge";';
 const I18N_MARKER = 'import "#app/i18n"; // Initializes i18n on import';
 const PLANNER_ADVISOR_MARKER = "export function getPlannerAdvisorMoveEvaluations(";
 const PLANNER_CHOICE_START = `export function choosePlannerMove(user: Pokemon, movePool: PokemonMove[]): TurnMove {\n  installPlannerDebugConsoleHelper();\n\n  const choices = movePool\n    .flatMap(move => scorePlannerMoveCandidates(user, move))\n    .filter((scoredMove): scoredMove is PlannerMoveChoice => !!scoredMove)\n    .map(choice => scorePlannerChoiceByOneTurnSearch(user, choice))\n    .sort((a, b) => b.score - a.score);`;
@@ -35,14 +36,29 @@ export async function resolveGameSrc(gameRoot) {
 }
 
 export function addAdvisorImport(mainSource) {
-  if (mainSource.includes(ADVISOR_IMPORT)) return mainSource;
+  const imports = [ADVISOR_IMPORT, REWARD_ADVISOR_IMPORT];
+  const missing = imports.filter(sourceImport => !mainSource.includes(sourceImport));
+  if (missing.length === 0) return mainSource;
 
   const newline = mainSource.includes("\r\n") ? "\r\n" : "\n";
-  if (mainSource.includes(I18N_MARKER)) {
-    return mainSource.replace(I18N_MARKER, `${I18N_MARKER}${newline}${ADVISOR_IMPORT}`);
+  let updated = mainSource;
+  let anchor = updated.includes(ADVISOR_IMPORT)
+    ? ADVISOR_IMPORT
+    : updated.includes(I18N_MARKER)
+      ? I18N_MARKER
+      : undefined;
+
+  if (!anchor) {
+    return `${missing.join(newline)}${newline}${updated}`;
   }
 
-  return `${ADVISOR_IMPORT}${newline}${mainSource}`;
+  for (const sourceImport of missing) {
+    if (updated.includes(sourceImport)) continue;
+    updated = updated.replace(anchor, `${anchor}${newline}${sourceImport}`);
+    anchor = sourceImport;
+  }
+
+  return updated;
 }
 
 export function addPlannerAdvisorHook(plannerSource) {
@@ -62,19 +78,25 @@ export function addPlannerAdvisorHook(plannerSource) {
 export async function installInto2p(gameRoot) {
   const gameSrc = await resolveGameSrc(gameRoot);
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const sourceBridge = path.resolve(scriptDir, "..", "integrations", "solvolrund-2p", "pokerogue-advisor-bridge.ts");
+  const integrationDir = path.resolve(scriptDir, "..", "integrations", "solvolrund-2p");
+  const sourceBridge = path.join(integrationDir, "pokerogue-advisor-bridge.ts");
+  const sourceRewardBridge = path.join(integrationDir, "pokerogue-advisor-reward-bridge.ts");
   const targetBridge = path.join(gameSrc, "pokerogue-advisor-bridge.ts");
+  const targetRewardBridge = path.join(gameSrc, "pokerogue-advisor-reward-bridge.ts");
   const mainPath = path.join(gameSrc, "main.ts");
   const plannerPath = path.join(gameSrc, "utils", "battle-planner-ai.ts");
 
-  if (!(await exists(sourceBridge))) {
-    throw new Error(`Advisor bridge source not found: ${sourceBridge}`);
+  for (const source of [sourceBridge, sourceRewardBridge]) {
+    if (!(await exists(source))) {
+      throw new Error(`Advisor bridge source not found: ${source}`);
+    }
   }
   if (!(await exists(plannerPath))) {
     throw new Error(`2P battle planner not found: ${plannerPath}`);
   }
 
   await copyFile(sourceBridge, targetBridge);
+  await copyFile(sourceRewardBridge, targetRewardBridge);
 
   const mainSource = await readFile(mainPath, "utf8");
   const updatedMain = addAdvisorImport(mainSource);
@@ -84,7 +106,7 @@ export async function installInto2p(gameRoot) {
   const updatedPlanner = addPlannerAdvisorHook(plannerSource);
   if (updatedPlanner !== plannerSource) await writeFile(plannerPath, updatedPlanner, "utf8");
 
-  return { gameSrc, targetBridge, mainPath, plannerPath };
+  return { gameSrc, targetBridge, targetRewardBridge, mainPath, plannerPath };
 }
 
 async function main() {
@@ -99,6 +121,7 @@ async function main() {
     const result = await installInto2p(gameRoot);
     console.log("PokeRogue Advisor integration installed.");
     console.log(`Bridge:  ${result.targetBridge}`);
+    console.log(`Rewards: ${result.targetRewardBridge}`);
     console.log(`Entry:   ${result.mainPath}`);
     console.log(`Planner: ${result.plannerPath}`);
   } catch (error) {
