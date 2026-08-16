@@ -15,6 +15,20 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run build
+      - name: Upload ready-to-test advisor package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokerogue-advisor-${{ github.sha }}
+          retention-days: 14
+          path: |
+            extension/
+            scripts/install-2p.mjs
+            scripts/install-official.mjs
+            integrations/solvolrund-2p/
+            integrations/pagefaultgames-official/
+            QUICKSTART.md
+            README.md
+            ROADMAP.md
 
   solvolrund-2p-integration:
     runs-on: ubuntu-latest
