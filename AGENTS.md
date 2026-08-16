@@ -10,17 +10,32 @@ The one thing that makes the project worth building: **while playing PokeRogue, 
 
 ## Product principles
 
+### Decision first, numbers second
+
+The product is an advisor, not a calculator.
+
+Every decision surface should answer these in order:
+
+1. **What should I do?**
+2. **How strong is that recommendation?**
+3. **Why?**
+4. **What numbers support it?**
+
+Raw percentages or scores are evidence, not the primary output. Small numeric differences must not create fake precision. When two choices are effectively equivalent, prefer the option that preserves scarce resources or reduces downside, and say that explicitly.
+
+Example: if two balls give 86.0% and 85.8% capture chance, the advisor should normally treat the capture chances as effectively tied and prefer the cheaper/more abundant ball unless the target is valuable enough that the tiny gain is worth the resource cost.
+
 ### Pareto principle
 
 Optimize for the small set of features that produces most player value.
 
 Priority order:
 
-1. Capture chance + best ball + catch/skip guidance.
-2. Battle move ranking.
-3. Reward choice ranking.
-4. Shop/recovery ranking.
-5. Party-fit / replacement guidance.
+1. Capture decision + best ball + catch/skip/prepare guidance.
+2. Battle move decision.
+3. Reward choice decision.
+4. Shop/recovery decision.
+5. Party-fit / replacement decision.
 
 Do not delay those five for advanced simulation, visual polish, generalized plugin systems, or edge-case completeness.
 
@@ -41,18 +56,66 @@ Do not delay those five for advanced simulation, visual polish, generalized plug
 - Read-only advisor. Do not automatically press game inputs in the MVP.
 - Prefer exact live game state over OCR or screen scraping whenever a bridge is possible.
 - Never expose mutable Phaser/game objects across the bridge. Serialize plain data only.
+- The overlay must lead with a recommendation, not a raw percentage table.
+- Close choices must use an indifference/equivalence threshold so the UI does not overstate meaningless numeric differences.
+- Resource scarcity and opportunity cost must be considered when recommending consumables.
 - Capture percentages may be labeled as probability when calculated from the actual game mechanics.
 - Planner score normalization must be labeled recommendation confidence, not win probability.
 - Do not add MCTS or forward simulation until the basic advisor is proven useful in real play.
 - Primary target is `SolVolrund/pokerogue-2p-beta`.
 - `pagefaultgames/pokerogue` compatibility is desirable but optional. It must not block the primary target.
 
+## Decision model
+
+Keep probability, utility, and recommendation separate.
+
+### Capture decision
+
+Candidate actions should eventually include:
+
+- throw a specific ball now
+- weaken first
+- apply status first
+- skip the catch
+
+The recommendation should consider:
+
+- actual catch probability by ball
+- ball scarcity / replacement cost
+- target value and team fit
+- whether the target replaces a current party member
+- risk of KOing the target while weakening
+- player survival risk while spending another turn
+- wave/run context when relevant
+
+Do not simply choose the highest catch percentage.
+
+### Battle decision
+
+The primary output is the recommended move/switch/target. Planner scores and later damage/KO probabilities support the recommendation but do not replace it.
+
+### Reward/shop decision
+
+The primary output is `PICK`, `BUY`, `SKIP`, `REROLL`, or `SAVE`, with short reasons. Item score and price are supporting evidence.
+
+### Recommendation strength
+
+Use qualitative decision strength to avoid false precision:
+
+- **Strong** — materially better than alternatives.
+- **Moderate** — meaningful edge, but context could change it.
+- **Slight** — small edge; alternatives are reasonable.
+- **Equivalent** — differences are too small to matter; prefer lower resource cost/risk.
+- **Situational** — depends on a player goal or information the advisor cannot know reliably.
+
+Thresholds should start simple and be tuned from real playtesting rather than over-engineered in advance.
+
 ## Architecture
 
 Keep three layers separate:
 
 1. **Game adapter** — reads one supported PokeRogue build and emits a stable serialized `AdvisorSnapshot`.
-2. **Advisor core** — game-agnostic scoring, normalization, ranking, and explanation logic.
+2. **Advisor core** — game-agnostic scoring, normalization, ranking, decision utility, and explanation logic.
 3. **Overlay** — renders recommendations and never needs direct knowledge of Phaser internals.
 
 Supported adapters should share the snapshot contract but may derive scores differently.
@@ -83,8 +146,10 @@ The core advisor must not import either game's source directly. Source-specific 
 
 - Stable snapshot contract.
 - Primary 2P game adapter.
-- Capture percentage for every available ball.
+- Capture probability for every available ball.
+- A capture decision: best action now, not just best probability.
 - Best-ball recommendation with scarcity awareness.
+- Initial `throw now` vs `prepare first` vs `skip` guidance using available state.
 - Battle move ranking with clear confidence labeling.
 - Reward ranking.
 - Shop/recovery ranking.
@@ -104,36 +169,41 @@ The core advisor must not import either game's source directly. Source-specific 
 
 ## Build plan
 
-### Phase 1 — One real capture recommendation [ACTIVE]
+### Phase 1 — One real capture decision [ACTIVE]
 
-Goal: get one live, correct recommendation from the 2P game into the overlay.
+Goal: get one live, correct, useful capture decision from the 2P game into the overlay.
 
 Done criteria:
 
 - A running 2P game produces a serialized capture snapshot.
 - Extension receives it without accessing mutable page objects.
-- Overlay shows each available ball and its calculated capture percentage.
-- The displayed value matches the game's capture formula for a manually checked encounter.
+- Overlay leads with a plain-language recommendation such as `THROW GREAT BALL NOW`, `WEAKEN FIRST`, or `SKIP`.
+- Overlay shows each available ball and its calculated capture percentage as supporting evidence.
+- Near-equal ball probabilities do not cause a wasteful recommendation when a cheaper/more abundant ball is effectively equivalent.
+- The displayed probabilities match the game's capture formula for a manually checked encounter.
+- The recommendation rationale is visible in one or two concise lines.
 - Failure state is obvious when no bridge is installed.
 
 Do not add reward/shop/battle integration until this works end-to-end.
 
-### Phase 2 — Battle move ranking
+### Phase 2 — Battle move decision
 
 Done criteria:
 
 - Live legal moves are visible in the snapshot.
 - Existing 2P planner evaluations are converted into deterministic ranked recommendations.
+- Overlay leads with `USE <MOVE>` / `SWITCH` and target when relevant.
 - UI says `confidence`, not `win probability`.
+- Close alternatives are labeled `Slight` or `Equivalent` rather than presented as certain.
 - At least five normal battle scenarios are manually sanity checked.
 
-### Phase 3 — Reward and shop
+### Phase 3 — Reward and shop decisions
 
 Done criteria:
 
 - Current reward options and shop options are serialized.
 - Existing computer-partner reward/recovery logic is reused where practical.
-- Overlay shows a best choice plus concise reasons.
+- Overlay leads with `PICK`, `BUY`, `SKIP`, `REROLL`, or `SAVE` plus concise reasons.
 
 ### Phase 4 — Party fit
 
@@ -171,6 +241,9 @@ Candidates:
 
 | Decision | Reason |
 |---|---|
+| Decision first, numbers second | The product should reduce player decision burden, not move the calculation burden into an overlay. |
+| Separate probability from utility | Highest success percentage is not always the best action when resources and opportunity cost matter. |
+| Treat near-equal choices as equivalent | Prevents fake precision such as acting as if 86.0% is meaningfully better than 85.8%. |
 | Separate game adapters from advisor core | Lets the same overlay/core support both the 2P fork and official PokeRogue without branching the whole project. |
 | Primary target is 2P fork | It already exposes stronger planner/capture/reward logic and is the user's current game. |
 | Official PokeRogue is optional Phase 5 | Compatibility is valuable but should not create early scope drag. |
@@ -198,6 +271,7 @@ Not yet confirmed working end-to-end:
 
 - The 2P bridge compiling inside an actual `SolVolrund/pokerogue-2p-beta` checkout.
 - Any live recommendation rendered from an actual running game.
+- The decision utility layer for capture actions.
 - A manual comparison between displayed capture percentage and a real encounter.
 - Official PokeRogue adapter.
 - Packaged extension installation after a clean `npm install && npm run build` on a normal development machine.
@@ -209,17 +283,18 @@ Not yet confirmed working end-to-end:
 | Initial extension plan assumed direct `window` access | Content scripts run in an isolated JS world | Use a serialized `window.postMessage` boundary. |
 | Capture model treated critical chance as one target-wide value | PokeRogue critical-capture chance depends on modified catch rate, so it varies by ball | Let the game adapter supply exact final probability per ball; keep generic math only as fallback. |
 | A capture snapshot assumed one enemy target | In 2P battles the Ball command may have multiple valid enemies before `SelectTargetPhase` | Support `captureTargets[]` and label every recommendation with its target when needed. |
+| Percentage-only output would still leave close decisions to the player | Probability does not include resource cost, team value, or practical equivalence | Add a decision utility layer and qualitative recommendation strength; raw percentages become supporting evidence. |
 | Full npm bundle was not validated in the assistant runtime | Runtime could not reach npm registry | Type-check locally where possible; validate full install/build on a normal dev machine before claiming release readiness. |
 
 ## What's next
 
-Finish **Phase 1 only** on a real game checkout:
+Finish **Phase 1 only** on a real game checkout, but validate a decision rather than only a percentage:
 
-1. Copy `integrations/solvolrund-2p/pokerogue-advisor-bridge.ts` into `pokerogue-beta/src/`.
-2. Add `import "./pokerogue-advisor-bridge";` to `pokerogue-beta/src/main.ts`.
-3. Run the 2P game's typecheck/build.
-4. Build/load the Advisor extension.
-5. Open one live wild encounter and verify the displayed percentages against the game's capture inputs.
+1. Install the Phase 1 bridge into the 2P checkout.
+2. Run the 2P game's typecheck/build.
+3. Build/load the Advisor extension.
+4. Open one live wild encounter and verify the displayed probabilities against the game's capture inputs.
+5. Add/tune the minimum capture decision utility so the overlay can recommend `throw now`, `prepare first`, or `skip` and select a sensible ball without wasting scarce resources on negligible percentage gains.
 
 Do not begin battle/reward/shop bridge work until this vertical slice succeeds.
 
