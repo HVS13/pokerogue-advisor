@@ -43,8 +43,16 @@ interface WireCapturePreparation {
   warning?: string;
 }
 
+interface WireCapturePartyMember {
+  speciesId: number;
+  name: string;
+  baseStatTotal: number;
+  types: number[];
+}
+
 interface WireCaptureTarget {
   targetId: number;
+  targetSpeciesId: number;
   speciesName: string;
   hp: number;
   maxHp: number;
@@ -52,6 +60,10 @@ interface WireCaptureTarget {
   statusMultiplier: number;
   shinyMultiplier: number;
   isShiny: boolean;
+  targetBaseStatTotal: number;
+  targetTypes: number[];
+  party: WireCapturePartyMember[];
+  partyCapacity: number;
   activeHpRatio: number;
   balls: WireCaptureBall[];
   preparations: WireCapturePreparation[];
@@ -84,6 +96,20 @@ const ADVISOR_BALL_TYPES = [
 
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
+}
+
+function getSpeciesTypes(pokemon: EnemyPokemon | PlayerPokemon): number[] {
+  const types = [pokemon.species.type1, pokemon.species.type2];
+  return types.filter((type): type is NonNullable<typeof type> => type !== null).map(Number);
+}
+
+function buildPartyFacts(playerIndex: PlayerIndex): WireCapturePartyMember[] {
+  return globalScene.getPlayerParty(playerIndex).map(pokemon => ({
+    speciesId: pokemon.species.speciesId,
+    name: pokemon.getNameToRender(),
+    baseStatTotal: pokemon.species.getBaseStatTotal(),
+    types: getSpeciesTypes(pokemon),
+  }));
 }
 
 function getModifiedCatchRate(
@@ -261,6 +287,8 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
   const playerIndex = globalScene.getPlayerIndexForFieldSlot(commandPhase.getFieldIndex());
   const counts = globalScene.getPlayerPokeballCounts(playerIndex);
   const activePokemon = commandPhase.getPokemon();
+  const party = buildPartyFacts(playerIndex);
+  const partyCapacity = globalScene.twoPlayerMode ? globalScene.twoPlayerPartySize : 6;
   const targets = globalScene
     .getEnemyField()
     .filter(target => target.isActive(true) && !target.isFainted());
@@ -273,6 +301,7 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
 
     return {
       targetId: target.id,
+      targetSpeciesId: target.species.speciesId,
       speciesName: target.getNameToRender(),
       hp: target.hp,
       maxHp: target.getMaxHp(),
@@ -280,6 +309,10 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
       statusMultiplier,
       shinyMultiplier,
       isShiny: target.isShiny(),
+      targetBaseStatTotal: target.species.getBaseStatTotal(),
+      targetTypes: getSpeciesTypes(target),
+      party,
+      partyCapacity,
       activeHpRatio: activePokemon.getHpRatio(),
       balls: buildBalls(target, counts, playerIndex),
       preparations: [
