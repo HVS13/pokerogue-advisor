@@ -1,0 +1,16 @@
+{
+  "name": "pokerogue-advisor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:types && npm run build:extension",
+    "build:types": "tsc -p tsconfig.json",
+    "build:extension": "esbuild src/index.ts --bundle --format=iife --platform=browser --target=chrome120 --outfile=extension/advisor.js",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  }
+}
