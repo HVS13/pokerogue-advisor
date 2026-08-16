@@ -60,9 +60,19 @@ export interface CapturePreparationOption {
   warning?: string;
 }
 
+/** Minimal, game-agnostic facts used to judge whether a catch improves the party. */
+export interface CapturePartyMember {
+  speciesId?: number;
+  name: string;
+  baseStatTotal: number;
+  /** Numeric game type ids. The core only compares equality, so adapters need not share an enum package. */
+  types: number[];
+}
+
 export interface CaptureSnapshot {
   /** Stable target id from the game when available. */
   targetId?: number;
+  targetSpeciesId?: number;
   speciesName: string;
   hp: number;
   maxHp: number;
@@ -70,6 +80,10 @@ export interface CaptureSnapshot {
   statusMultiplier: number;
   shinyMultiplier: number;
   isShiny?: boolean;
+  targetBaseStatTotal?: number;
+  targetTypes?: number[];
+  party?: CapturePartyMember[];
+  partyCapacity?: number;
   /** Current active player's HP ratio, used as a conservative extra-turn risk signal. */
   activeHpRatio?: number;
   /**
@@ -80,7 +94,7 @@ export interface CaptureSnapshot {
   balls: CaptureBallCandidate[];
   /** Safe one-turn preparation options observed by the game adapter. */
   preparations?: CapturePreparationOption[];
-  /** Team-fit / catch-value score from 0 to 100. */
+  /** Optional adapter override. Prefer portable party facts when available. */
   teamFitScore?: number;
   replacementName?: string;
 }
