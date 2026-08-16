@@ -10,6 +10,7 @@
   },
   "include": [
     "../../integrations/solvolrund-2p/pokerogue-advisor-bridge.ts",
+    "../../integrations/solvolrund-2p/pokerogue-advisor-reward-bridge.ts",
     "stubs.d.ts"
   ]
 }
