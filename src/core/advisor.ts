@@ -1,7 +1,7 @@
 import { analyzeBattleMoves } from "./battle.js";
 import { assessCatchValue } from "./catch-value.js";
 import { analyzeCapture } from "./capture.js";
-import { rankChoices } from "./choices.js";
+import { analyzeRewardShop, rankChoices } from "./choices.js";
 import type { AdvisorRecommendation, AdvisorSnapshot, CaptureSnapshot } from "./types.js";
 
 function analyzeCaptureTarget(target: CaptureSnapshot): AdvisorRecommendation[] {
@@ -39,7 +39,6 @@ function analyzeCaptureTargets(targets: CaptureSnapshot[]): AdvisorRecommendatio
     })),
   );
 
-  // In multi-target battles, never let target 1 evidence hide target 2's actual decision.
   return [
     ...recommendations.filter(recommendation => recommendation.isDecision),
     ...recommendations.filter(recommendation => !recommendation.isDecision && recommendation.id.endsWith(":team-fit")),
@@ -59,6 +58,13 @@ export function analyzeSnapshot(snapshot: AdvisorSnapshot): AdvisorRecommendatio
           : [];
       return analyzeCaptureTargets(targets);
     }
+    case "reward-shop":
+      return analyzeRewardShop(
+        snapshot.rewards ?? [],
+        snapshot.shop ?? [],
+        snapshot.shopMoney,
+        snapshot.shopReserve,
+      );
     case "reward":
       return rankChoices("reward", snapshot.rewards ?? []);
     case "shop":
