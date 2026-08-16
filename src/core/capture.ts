@@ -86,6 +86,13 @@ function getEquivalenceMargin(bestProbability: number): number {
   return 0.005;
 }
 
+function getPremiumReleaseThreshold(teamFitScore?: number): number | undefined {
+  if (teamFitScore === undefined || teamFitScore < 90) return;
+  if (teamFitScore >= 100) return 0.9;
+  if (teamFitScore >= 97) return 0.65;
+  return 0.45;
+}
+
 function choosePracticalBall(evaluated: EvaluatedBall[], teamFitScore?: number): BallSelection | undefined {
   if (evaluated.length === 0) return;
 
@@ -97,7 +104,11 @@ function choosePracticalBall(evaluated: EvaluatedBall[], teamFitScore?: number):
 
   const nonPremium = byProbability.filter(candidate => candidate.resourceRank < 4);
   const hasPremium = byProbability.some(candidate => candidate.resourceRank >= 4);
-  const shouldPreservePremium = hasPremium && nonPremium.length > 0 && (teamFitScore === undefined || teamFitScore < 90);
+  const premiumReleaseThreshold = getPremiumReleaseThreshold(teamFitScore);
+  const bestNonPremiumProbability = nonPremium[0]?.probability ?? 0;
+  const shouldPreservePremium = hasPremium
+    && nonPremium.length > 0
+    && (premiumReleaseThreshold === undefined || bestNonPremiumProbability >= premiumReleaseThreshold);
   const practicalPool = shouldPreservePremium ? nonPremium : byProbability;
   const highestProbability = practicalPool[0];
   const margin = getEquivalenceMargin(highestProbability.probability);
@@ -142,7 +153,7 @@ function buildThrowDecision(
   }
 
   if (preservedPremium) {
-    reasons.push("Preserve Master-tier resources until the target-value system says they are justified.");
+    reasons.push("Preserve Master-tier resources because a non-premium ball is already reliable enough for this target value.");
   }
 
   if (snapshot.activeHpRatio !== undefined && snapshot.activeHpRatio <= 0.35) {
