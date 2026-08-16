@@ -24,6 +24,7 @@ interface WireCaptureBall {
   multiplier: number;
   count: number;
   probability: number;
+  resourceRank: number;
 }
 
 interface WireCaptureTarget {
@@ -126,6 +127,7 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
         multiplier: getPokeballCatchMultiplier(ballType),
         count,
         probability: getExactCatchProbability(target, ballType, playerIndex),
+        resourceRank: ballType,
       }];
     });
 

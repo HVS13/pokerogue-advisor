@@ -1,0 +1,9 @@
+declare module "#app/battle-scene" { export type PlayerIndex = 0 | 1 | 2; }
+declare module "#app/global-event-manager" { export const timedEventManager: { getShinyCatchMultiplier(): number }; }
+declare module "#enums/pokeball" { export enum PokeballType { POKEBALL, GREAT_BALL, ULTRA_BALL, ROGUE_BALL, MASTER_BALL, LUXURY_BALL, GLASS_BALL } }
+declare module "#enums/ui-mode" { export enum UiMode { MESSAGE, TITLE, COMMAND, FIGHT, BALL } }
+declare module "#data/pokeball" { import type { PlayerIndex } from "#app/battle-scene"; import type { PokeballType } from "#enums/pokeball"; export function getCriticalCaptureChance(modifiedCatchRate: number, playerIndex?: PlayerIndex): number; export function getPokeballCatchMultiplier(type: PokeballType): number; export function getPokeballName(type: PokeballType): string; }
+declare module "#data/status-effect" { export function getStatusEffectCatchRateMultiplier(effect: unknown): number; }
+declare module "#field/pokemon" { export interface EnemyPokemon { id: number; hp: number; status?: { effect: unknown }; species: { catchRate: number }; getMaxHp(): number; isShiny(): boolean; isActive(check?: boolean): boolean; isFainted(): boolean; getNameToRender(): string; } }
+declare module "#phases/command-phase" { export interface CommandPhase { getFieldIndex(): number; } }
+declare module "#app/global-scene" { import type { PlayerIndex } from "#app/battle-scene"; import type { PokeballType } from "#enums/pokeball"; import type { EnemyPokemon } from "#field/pokemon"; export const globalScene: { ui: { getMode(): number }; phaseManager: { getCurrentPhase(): { is(name: string): boolean; getFieldIndex?: () => number } }; getPlayerIndexForFieldSlot(index: number): PlayerIndex; getPlayerPokeballCounts(index: PlayerIndex): Partial<Record<PokeballType, number>>; getEnemyField(): EnemyPokemon[]; }; }

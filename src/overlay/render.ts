@@ -75,21 +75,29 @@ export function renderAdvisor(snapshot: AdvisorSnapshot, recommendations: Adviso
   for (const rec of shown) {
     const card = document.createElement("div");
     Object.assign(card.style, {
-      padding: "9px 0",
+      padding: rec.isDecision ? "12px 0" : "9px 0",
       borderTop: "1px solid rgba(255,255,255,.1)",
     });
+
+    if (rec.isDecision) {
+      const kicker = addText(card, "RECOMMENDATION", ".62");
+      kicker.style.fontSize = "11px";
+      kicker.style.letterSpacing = ".08em";
+    }
 
     const row = document.createElement("div");
     Object.assign(row.style, { display: "flex", gap: "8px", alignItems: "baseline" });
     const label = document.createElement("strong");
-    label.textContent = `${rec.rank ? `${rec.rank}. ` : ""}${rec.label}`;
+    label.textContent = `${rec.rank && !rec.isDecision ? `${rec.rank}. ` : ""}${rec.label}`;
     const metric = document.createElement("span");
     metric.style.marginLeft = "auto";
-    metric.textContent = rec.probability !== undefined
-      ? pct(rec.probability)
-      : rec.confidence !== undefined
-        ? `${pct(rec.confidence)} confidence`
-        : rec.score.toFixed(0);
+    metric.textContent = rec.isDecision && rec.decisionStrength
+      ? rec.decisionStrength.toUpperCase()
+      : rec.probability !== undefined
+        ? pct(rec.probability)
+        : rec.confidence !== undefined
+          ? `${pct(rec.confidence)} confidence`
+          : rec.score.toFixed(0);
     row.append(label, metric);
     card.appendChild(row);
 

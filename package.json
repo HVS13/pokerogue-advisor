@@ -6,11 +6,15 @@
   "scripts": {
     "build": "npm run build:types && npm run build:extension",
     "build:types": "tsc -p tsconfig.json",
-    "build:extension": "esbuild src/index.ts --bundle --format=iife --platform=browser --target=chrome120 --outfile=extension/advisor.js",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "build:extension": "node scripts/build-extension.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test:core": "npm run build:types && node tests/capture-decision.mjs && node tests/browser-flow.mjs",
+    "test:bridge": "tsc -p tests/bridge/tsconfig.json",
+    "test:installer": "node tests/install-2p.mjs",
+    "test": "npm run check && npm run test:core && npm run test:bridge && npm run test:installer && npm run test:bundle",
+    "test:bundle": "npm run build:extension && node --check extension/advisor.js && node tests/bundle-smoke.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.25.9",
     "typescript": "^5.9.2"
   }
 }

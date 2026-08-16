@@ -1,4 +1,5 @@
 export type AdvisorContext = "battle" | "capture" | "reward" | "shop" | "party" | "idle";
+export type DecisionStrength = "strong" | "moderate" | "slight" | "equivalent" | "situational";
 
 export interface AdvisorRecommendation {
   id: string;
@@ -9,6 +10,9 @@ export interface AdvisorRecommendation {
   probability?: number;
   reason: string[];
   warnings?: string[];
+  /** True when this row is the advisor's action, not merely supporting evidence. */
+  isDecision?: boolean;
+  decisionStrength?: DecisionStrength;
   metadata?: Record<string, string | number | boolean | null>;
 }
 
@@ -31,6 +35,8 @@ export interface CaptureBallCandidate {
   count: number;
   /** Exact probability from 0 to 1 when supplied by a game adapter. */
   probability?: number;
+  /** Relative resource value. Lower means cheaper/more expendable. */
+  resourceRank?: number;
 }
 
 export interface CaptureSnapshot {
