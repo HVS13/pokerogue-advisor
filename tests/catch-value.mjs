@@ -99,4 +99,34 @@ assessment = assessCatchValue({ ...base, teamFitScore: 82, replacementName: "Old
 assert.equal(assessment?.score, 82);
 assert.equal(assessment?.replacementName, "Oldmon");
 
+const premiumButSafe = analyzeSnapshot({
+  version: 1,
+  context: "capture",
+  generatedAt: 2,
+  capture: {
+    ...base,
+    teamFitScore: 95,
+    balls: [
+      { id: "2", name: "Ultra Ball", multiplier: 2, count: 8, probability: 0.86, resourceRank: 2 },
+      { id: "4", name: "Master Ball", multiplier: -1, count: 1, probability: 1, resourceRank: 4 },
+    ],
+  },
+});
+assert.equal(premiumButSafe[0].label, "THROW ULTRA BALL NOW", "high value alone must not waste a Master Ball at 86%");
+
+const premiumNeeded = analyzeSnapshot({
+  version: 1,
+  context: "capture",
+  generatedAt: 3,
+  capture: {
+    ...base,
+    teamFitScore: 95,
+    balls: [
+      { id: "2", name: "Ultra Ball", multiplier: 2, count: 8, probability: 0.35, resourceRank: 2 },
+      { id: "4", name: "Master Ball", multiplier: -1, count: 1, probability: 1, resourceRank: 4 },
+    ],
+  },
+});
+assert.equal(premiumNeeded[0].label, "THROW MASTER BALL NOW", "premium resources may unlock when a valuable target is otherwise unreliable");
+
 console.log("PASS catch value tests");
