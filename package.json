@@ -8,7 +8,7 @@
     "build:types": "tsc -p tsconfig.json",
     "build:extension": "node scripts/build-extension.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test:core": "npm run build:types && node tests/capture-decision.mjs && node tests/catch-value.mjs && node tests/battle-decision.mjs && node tests/reward-shop.mjs && node tests/browser-flow.mjs",
+    "test:core": "npm run build:types && node tests/capture-math.mjs && node tests/capture-decision.mjs && node tests/catch-value.mjs && node tests/battle-decision.mjs && node tests/reward-shop.mjs && node tests/browser-flow.mjs",
     "test:bridge": "tsc -p tests/bridge/tsconfig.json",
     "test:official-bridge": "tsc -p tests/official-bridge/tsconfig.json",
     "test:installer": "node tests/install-2p.mjs && node tests/install-official.mjs",
