@@ -1,13 +1,18 @@
 import { getLatestSnapshot, requestSnapshot } from "./bridge/api.js";
+import { isLikelyPokeRoguePage } from "./bridge/page-detection.js";
 import { analyzeSnapshot } from "./core/advisor.js";
 import { getSnapshotContentKey } from "./core/snapshot-key.js";
 import type { AdvisorSnapshot } from "./core/types.js";
 import { renderAdvisor, setAdvisorVisible } from "./overlay/render.js";
 
-const startedAt = Date.now();
+const DETECTION_RETRIES = 20;
+const DETECTION_RETRY_MS = 250;
+
+let startedAt = 0;
 let lastSnapshotKey: string | undefined;
 let visible = true;
 let disconnectedRendered = false;
+let pollingStarted = false;
 
 function renderDisconnectedState(): void {
   if (disconnectedRendered) return;
@@ -36,11 +41,29 @@ function tick(): void {
   renderAdvisor(snapshot, analyzeSnapshot(snapshot));
 }
 
-window.addEventListener("keydown", event => {
-  if (event.key !== "F8") return;
-  visible = !visible;
-  setAdvisorVisible(visible);
-});
+function startAdvisor(): void {
+  if (pollingStarted) return;
+  pollingStarted = true;
+  startedAt = Date.now();
 
-setInterval(tick, 150);
-requestSnapshot();
+  window.addEventListener("keydown", event => {
+    if (event.key !== "F8") return;
+    visible = !visible;
+    setAdvisorVisible(visible);
+  });
+
+  setInterval(tick, 150);
+  requestSnapshot();
+}
+
+function detectAndStart(attempt = 0): void {
+  if (isLikelyPokeRoguePage(window.location.hostname, document.title)) {
+    startAdvisor();
+    return;
+  }
+
+  if (attempt >= DETECTION_RETRIES) return;
+  setTimeout(() => detectAndStart(attempt + 1), DETECTION_RETRY_MS);
+}
+
+detectAndStart();
