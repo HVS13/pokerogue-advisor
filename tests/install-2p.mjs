@@ -18,12 +18,19 @@ try {
   await installInto2p(root);
 
   const main = await readFile(path.join(src, "main.ts"), "utf8");
-  const importCount = main.split('import "./pokerogue-advisor-bridge";').length - 1;
-  assert.equal(importCount, 1, "installer must not duplicate the bridge import");
-  assert.match(main, /#app\/i18n[\s\S]*pokerogue-advisor-bridge/);
+  const bridgeImport = 'import "./pokerogue-advisor-bridge";';
+  const rewardImport = 'import "./pokerogue-advisor-reward-bridge";';
+  assert.equal(main.split(bridgeImport).length - 1, 1, "installer must not duplicate the main bridge import");
+  assert.equal(main.split(rewardImport).length - 1, 1, "installer must not duplicate the reward bridge import");
+  assert(main.indexOf("#app/i18n") < main.indexOf(bridgeImport), "advisor imports should follow i18n initialization");
+  assert(main.indexOf(bridgeImport) < main.indexOf(rewardImport), "reward sidecar should load after the main bridge");
 
   const bridge = await readFile(path.join(src, "pokerogue-advisor-bridge.ts"), "utf8");
   assert.match(bridge, /PokeRogue Advisor bridge/);
+
+  const rewardBridge = await readFile(path.join(src, "pokerogue-advisor-reward-bridge.ts"), "utf8");
+  assert.match(rewardBridge, /Reward\/shop sidecar/);
+  assert.match(rewardBridge, /Phaser\.Math\.RND\.state/);
 
   const planner = await readFile(path.join(utils, "battle-planner-ai.ts"), "utf8");
   assert.equal(
@@ -43,7 +50,7 @@ try {
     "advisor evaluation export must not consume battle RNG",
   );
 
-  console.log("PASS cross-platform 2P installer and planner hook test");
+  console.log("PASS cross-platform 2P installer, reward sidecar, and planner hook test");
 } finally {
   await rm(root, { recursive: true, force: true });
 }
