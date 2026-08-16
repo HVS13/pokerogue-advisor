@@ -128,4 +128,6 @@ const multi = analyzeSnapshot({
 });
 assert(multi.some(rec => rec.isDecision && rec.label.startsWith("Pidgey · THROW")));
 assert(multi.some(rec => rec.isDecision && rec.label.startsWith("Rattata · THROW")));
+assert.equal(multi[0].isDecision, true);
+assert.equal(multi[1].isDecision, true, "all target decisions should render before supporting evidence");
 console.log("PASS capture decision tests");
