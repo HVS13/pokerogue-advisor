@@ -1,90 +1,113 @@
 # PokeRogue Advisor
 
-A read-only decision assistant and on-screen overlay for PokeRogue.
+A read-only, decision-first on-screen advisor for PokeRogue.
 
 ## Supported targets
 
-| Game | Priority | Strategy |
+| Game | Status | Strategy |
 |---|---|---|
-| `SolVolrund/pokerogue-2p-beta` | Primary | Reuse its live state and existing planner/capture/reward logic. |
-| `pagefaultgames/pokerogue` | Optional | Use a separate adapter over official capture, enemy-AI scoring, reward/shop, and live state structures. |
+| `SolVolrund/pokerogue-2p-beta` | Primary, developer-complete for core MVP decisions | Reuse exact capture mechanics, the existing battle planner, reward scoring, recovery/shop scoring, and per-player live state. |
+| `pagefaultgames/pokerogue` | Optional compatibility, capture adapter next | Keep the same core/overlay and add a thin official-game adapter. |
 
-The advisor core and overlay do not fork per game. Only the game adapter changes.
+The advisor core and overlay do not fork per game. Only the source adapter changes.
 
-## Product goal
+## Product rule
 
-While playing, show the best practical choice without requiring the player to leave the game or manually calculate it.
+**Decision first, numbers second.**
 
-High-value decisions:
+The overlay should lead with an action:
 
-1. Capture chance, best ball, and catch/skip guidance.
-2. Battle move ranking.
-3. Reward choice ranking.
-4. Shop/recovery ranking.
-5. Party-fit and replacement guidance.
+```text
+THROW ULTRA BALL NOW
+WEAKEN WITH FALSE SWIPE
+USE THUNDERBOLT → GYARADOS
+PICK MULTI LENS
+BUY REVIVE
+SAVE MONEY
+```
 
-## Build philosophy
+Then it shows recommendation strength, concise reasons, and supporting probabilities/scores.
 
-This project uses a Pareto-first approach: deliver the small set of features that creates most player value before adding advanced simulation or polish.
+Raw percentages are not the product. Near-equal choices are treated as equivalent so a meaningless numeric edge does not waste scarce resources.
 
-The project workflow is documented in [`AGENTS.md`](./AGENTS.md). In short:
+## Current 2P MVP
 
-- requirements and architecture stay written down
-- MVP scope has explicit IN and OUT
-- each phase has observable done criteria
-- build one vertical slice, run/test it, then continue
-- diagnose root cause before fixing
-- record failures and locked decisions so they are not rediscovered later
+Implemented and automated-tested:
+
+- exact catch probability for each usable ball
+- practical ball selection with scarcity and Master Ball conservation
+- `THROW` / `WEAKEN` / `APPLY STATUS` / `SKIP` capture decisions
+- conservative catch value and replacement candidate
+- 3- or 6-Pokémon 2P party awareness
+- battle `USE <MOVE> → <TARGET>` decisions from the fork's existing one-turn planner
+- qualitative battle strength without fake win/confidence percentages
+- reward `PICK` / `SKIP REWARD`
+- recovery shop `BUY` / `SAVE MONEY`
+- emergency recovery priority, target, money, and reserve explanations
+- F8 overlay
+- cross-origin-safe `window.postMessage` boundary
+- automated integration checks against the real current SolVolrund source
+
+The remaining 2P work is human acceptance in an actual browser/game session. Development does not wait on that.
+
+## RNG safety
+
+Advisor inspection must not alter seeded game outcomes.
+
+- Battle advice uses a deterministic planner-evaluation export and never calls the planner's random final chooser.
+- Reward scoring can use random target fallbacks internally, so the adapter saves and restores `Phaser.Math.RND.state()` around each advisor evaluation.
 
 ## Architecture
 
-The project is intentionally split into three layers:
+1. **Game adapter** converts live game state into a serialized `AdvisorSnapshot`.
+2. **Advisor core** performs game-agnostic decision utility, ranking, thresholds, and explanations.
+3. **Browser overlay** requests snapshots over same-page `window.postMessage` and renders decisions.
 
-1. **Game adapter**: converts one supported PokeRogue build's live state into a stable, read-only `AdvisorSnapshot`.
-2. **Advisor core**: game-agnostic scoring, ranking, probability, and explanation logic.
-3. **Advisor extension**: requests serialized snapshots over `window.postMessage` and renders recommendations over the game.
+No OCR is required when source state is available.
 
-The `postMessage` boundary matters because normal browser-extension content scripts run in an isolated JavaScript world and should not depend on directly reading page-owned JS objects.
+## Install into PokeRogue 2P
 
-## Why not OCR?
+From the advisor repository root:
 
-PokeRogue already knows exact HP, status, species, moves, party state, rewards, money, shop options, and capture mechanics. Using pixels would discard reliable state we can obtain from a small source adapter.
+```bash
+node scripts/install-2p.mjs "C:\path\to\pokerogue-2p-beta"
+```
 
-## Active MVP phase
-
-**Phase 1: one real live capture recommendation on the 2P fork.**
-
-The first 2P bridge source and installer now live in [`integrations/solvolrund-2p/`](./integrations/solvolrund-2p/).
-
-Before expanding scope, we still must prove end-to-end that:
-
-- the adapter compiles inside a real 2P checkout
-- the game emits a serialized capture snapshot
-- the extension receives it
-- the overlay shows every currently usable ball and its capture percentage
-- at least one displayed value is manually verified against the game's own formula
-
-See [`integrations/solvolrund-2p/INSTALL.md`](./integrations/solvolrund-2p/INSTALL.md), [`AGENTS.md`](./AGENTS.md), and [`ROADMAP.md`](./ROADMAP.md).
-
-## Development
+Then:
 
 ```bash
 npm install
-npm run check
+npm test
 npm run build
 ```
 
-Then load `extension/` as an unpacked browser extension.
+Load `extension/` as an unpacked Chrome/Edge extension and run PokeRogue 2P normally.
 
-The extension and game adapter exchange serialized request/snapshot messages through same-page `window.postMessage`. The advisor never sends game inputs.
+See [`integrations/solvolrund-2p/INSTALL.md`](./integrations/solvolrund-2p/INSTALL.md) for details and reverting instructions.
 
-## Probability labels
+## Automated testing
 
-- Capture percentages can be actual probabilities when calculated from the game's mechanics.
-- The 2P adapter sends exact final probability per ball because critical-capture chance varies with modified catch rate.
-- Battle planner percentages are **recommendation confidence**, not win probability.
-- Do not label battle recommendations as win probability until a real forward simulator or MCTS layer exists.
+Every push/PR runs the advisor test/build suite plus an integration job that:
 
-## Status
+1. checks out the current `SolVolrund/pokerogue-2p-beta`
+2. installs its dependencies
+3. records its existing TypeScript-error baseline
+4. installs the Advisor bridge/sidecars/planner hook
+5. typechecks again
+6. fails if Advisor introduces new TypeScript errors
 
-The standalone advisor scaffold and the first 2P capture adapter are implemented. Core/extension TypeScript passes a local type-check. The next required milestone is compiling the adapter inside an actual 2P checkout and verifying one live encounter before adding battle/reward/shop integration.
+The baseline comparison is needed because the upstream 2P checkout can already have asset-related TypeScript errors when some asset JSON files are unavailable.
+
+## Optional official PokeRogue compatibility
+
+The next Pareto slice is **capture-only support** for `pagefaultgames/pokerogue` on its current `beta` branch.
+
+The same advisor core and overlay will remain unchanged. The official adapter will only translate official live state and mechanics into the existing snapshot contract.
+
+Battle/reward/shop parity for official PokeRogue waits until official capture compatibility is green.
+
+## Development philosophy
+
+The project uses a Pareto-first workflow plus the AI Builder-style discipline captured in [`AGENTS.md`](./AGENTS.md): explicit scope, small vertical slices, immediate tests, root-cause debugging, and recorded decisions.
+
+See [`ROADMAP.md`](./ROADMAP.md) for the short execution view.
