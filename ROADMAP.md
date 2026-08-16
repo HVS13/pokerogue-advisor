@@ -4,7 +4,7 @@ The detailed operating blueprint is in [`AGENTS.md`](./AGENTS.md). This is the s
 
 ## Pareto order
 
-The high-value 2P loop is now implemented at developer-test level:
+The high-value 2P loop is implemented at developer-test level:
 
 1. capture decision
 2. battle move + target decision
@@ -12,81 +12,81 @@ The high-value 2P loop is now implemented at developer-test level:
 4. recovery/shop decision
 5. basic party-fit / replacement judgment
 
-Advanced simulation waits until real playtesting proves it is worth the complexity.
+Official capture compatibility is also complete. Advanced simulation waits until real playtesting proves it is worth the complexity.
 
-## Phase 1: Capture decision — DEVELOPER COMPLETE
+## Phase 1: 2P capture decision — DEVELOPER COMPLETE
 
 - exact per-ball probability
-- practical resource-aware ball choice
+- resource-aware ball choice
 - throw / weaken / status / skip
 - conservative catch value and replacement candidate
 - multi-target support
 - 3/6 party capacity
 - automated real-source compatibility check
 
-Human browser acceptance is deferred.
-
-## Phase 2: Battle move decision — DEVELOPER COMPLETE
+## Phase 2: 2P battle move decision — DEVELOPER COMPLETE
 
 - deterministic existing-planner scoring export
 - `USE <MOVE> → <TARGET>`
 - qualitative strength, no fake win/confidence percentage
 - cached evaluation
-- planner breakdown reasons
+- planner explanations
 - no advisor RNG consumption
 - automated real-source compatibility check
 
-Switch advice and exact KO/damage probability are later quality work, not MVP blockers.
-
-## Phase 3: Reward and shop — DEVELOPER COMPLETE
+## Phase 3: 2P reward and shop — DEVELOPER COMPLETE
 
 - `PICK` / `SKIP REWARD`
 - `BUY` / `SAVE MONEY`
-- target Pokémon/move explanation
+- target explanation
 - emergency recovery priority
-- exact adjusted shop costs
+- exact adjusted costs
 - current money + reserve context
 - reward RNG state preservation
-- simulated overlay flow
 - automated real-source compatibility check
 
 ## Phase 4: Party quality — PARTLY COMPLETE
 
-Basic party fit was pulled forward into capture because it is needed for `CATCH` vs `SKIP`.
+Basic party fit was pulled into capture because it is needed for `CATCH` vs `SKIP`.
 
-Only improve when playtesting identifies concrete misses:
+Only improve when playtesting identifies concrete misses: evolution potential, IVs/nature/ability, deeper roles, or better replacement scoring.
 
-- evolution potential
-- IVs/nature/ability
-- deeper team roles
-- better replacement scoring
+## Phase 5A: Official PokeRogue capture adapter — DEVELOPER COMPLETE
 
-## Phase 5A: Official PokeRogue capture adapter — ACTIVE
+Target: `pagefaultgames/pokerogue@beta`.
 
-Target: `pagefaultgames/pokerogue`, default branch `beta`.
+- same core/overlay unchanged
+- exact official capture mechanics
+- live official target, party, and Poké Ball inventory
+- separate idempotent installer
+- capture formula regression
+- automated real official-source compatibility check
 
-Smallest compatibility slice:
+Official weakening/status preparation is not included because it would require pulling 2P-specific helper logic into the official adapter.
 
-- keep advisor core/overlay unchanged
-- read official wild target + Poké Ball inventory
-- reproduce the current official capture formula exactly
-- emit the existing capture snapshot format
-- add a separate official installer
-- add official-source CI that rejects new TypeScript errors
+## Phase 5B: Official battle/reward/shop — OPTIONAL / DEFERRED
 
-Do not add official battle/reward/shop support until this is green.
+Do not expand official parity by default. Capture compatibility already proves the multi-adapter architecture.
 
-## Phase 5B: Official battle/reward/shop — OPTIONAL
+## Phase 6: Integration hardening — ACTIVE
 
-Only after official capture works:
+Smallest next slice:
 
-- official move/target scoring adapter
-- official reward/shop state
-- same decision-first core
+- one adapter response per decision surface
+- battle/capture bridge must stay silent during `MODIFIER_SELECT`
+- reward/shop sidecar is the sole provider on the modifier screen
+- regression test provider routing
+- keep advisor, real 2P, and real official CI green
 
-## Phase 6: Improve only where playtesting proves value
+Then consider:
 
-Candidates:
+- reduce unnecessary render churn
+- cleaner install/build packaging
+- adapter/version diagnostics for later acceptance testing
+
+## Phase 7: Advanced quality — DEFERRED
+
+Only where real playtesting proves value:
 
 - exact damage ranges
 - KO probability
