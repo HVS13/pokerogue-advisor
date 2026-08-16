@@ -1,10 +1,11 @@
 import { getLatestSnapshot, requestSnapshot } from "./bridge/api.js";
 import { analyzeSnapshot } from "./core/advisor.js";
+import { getSnapshotContentKey } from "./core/snapshot-key.js";
 import type { AdvisorSnapshot } from "./core/types.js";
 import { renderAdvisor, setAdvisorVisible } from "./overlay/render.js";
 
 const startedAt = Date.now();
-let lastGeneratedAt = -1;
+let lastSnapshotKey: string | undefined;
 let visible = true;
 let disconnectedRendered = false;
 
@@ -14,7 +15,7 @@ function renderDisconnectedState(): void {
   const snapshot: AdvisorSnapshot = {
     version: 1,
     context: "idle",
-    notice: "Game bridge not detected. Install the PokeRogue 2P adapter and reload the game.",
+    notice: "Game bridge not detected. Install a supported PokeRogue adapter and reload the game.",
     generatedAt: Date.now(),
   };
   renderAdvisor(snapshot, []);
@@ -29,8 +30,9 @@ function tick(): void {
   }
 
   disconnectedRendered = false;
-  if (snapshot.generatedAt === lastGeneratedAt) return;
-  lastGeneratedAt = snapshot.generatedAt;
+  const snapshotKey = getSnapshotContentKey(snapshot);
+  if (snapshotKey === lastSnapshotKey) return;
+  lastSnapshotKey = snapshotKey;
   renderAdvisor(snapshot, analyzeSnapshot(snapshot));
 }
 
