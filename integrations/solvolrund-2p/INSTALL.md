@@ -4,21 +4,21 @@ This is the smallest end-to-end integration for `SolVolrund/pokerogue-2p-beta`.
 
 It only exposes read-only capture-menu state. It does not press inputs or alter multiplayer messages.
 
-## Fast install on Windows
+## Fast install
 
 From the advisor repository root, run:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\integrations\solvolrund-2p\install-into-2p.ps1 -GameRoot "C:\path\to\pokerogue-2p-beta"
+```bash
+node scripts/install-2p.mjs "C:\path\to\pokerogue-2p-beta"
 ```
 
-`-GameRoot` may point either to the outer `pokerogue-2p-beta` repository or directly to its `pokerogue-beta` game folder.
+The path may point either to the outer `pokerogue-2p-beta` repository or directly to its `pokerogue-beta` game folder.
 
-The installer is idempotent: it copies the bridge and adds the required import only if it is missing.
+The installer is cross-platform and idempotent: it copies the bridge and adds the required import only if it is missing. A PowerShell installer remains available under this folder as an alternative.
 
 ## Manual install
 
-From this repository, copy:
+Copy:
 
 ```text
 integrations/solvolrund-2p/pokerogue-advisor-bridge.ts
@@ -30,11 +30,7 @@ to:
 <2P repo>/pokerogue-beta/src/pokerogue-advisor-bridge.ts
 ```
 
-Then add this one side-effect import near the top of:
-
-```text
-<2P repo>/pokerogue-beta/src/main.ts
-```
+Then add this side-effect import near the top of `<2P repo>/pokerogue-beta/src/main.ts`:
 
 ```ts
 import "./pokerogue-advisor-bridge";
@@ -42,45 +38,51 @@ import "./pokerogue-advisor-bridge";
 
 Do not modify the multiplayer relay.
 
-## Run
+## Test and build the advisor
 
-Start PokeRogue 2P normally:
+```bash
+npm install
+npm test
+npm run build
+```
+
+Then load `extension/` as an unpacked Chrome/Edge extension and reload the game page.
+
+## Run PokeRogue 2P
+
+Start it normally:
 
 ```bash
 corepack pnpm run start:dev:lan
 corepack pnpm run start:2p-ws:lan
 ```
 
-Build this advisor repository:
-
-```bash
-npm install
-npm run build
-```
-
-Load `extension/` as an unpacked Chrome/Edge extension, then reload the game page.
-
 ## Expected Phase 1 behavior
 
-1. Outside the Poké Ball menu, the overlay says to open the ball menu.
+1. Outside the Poké Ball menu, the overlay tells you to open the ball menu.
 2. Open **Ball** during a catchable encounter.
-3. The overlay lists every currently usable ball with an estimated catch percentage.
-4. In a multi-enemy 2P battle, each target is labeled separately so advice cannot silently refer to the wrong wild Pokémon.
-5. F8 toggles the overlay.
+3. The overlay leads with a decision such as `USE ULTRA BALL NOW`, plus recommendation strength and a short reason.
+4. Ball percentages remain visible as supporting evidence.
+5. Near-equal odds prefer the cheaper resource. Example: 85.8% Ultra vs 86.0% Rogue recommends Ultra rather than wasting Rogue for 0.2 percentage points.
+6. Master-tier resources are preserved by default until target-value/team-fit data justifies them.
+7. In a multi-enemy 2P battle, each target is labeled separately.
+8. F8 toggles the overlay.
 
-## Manual verification
+## Automated checks
 
-For one encounter, compare the overlay against the game's own capture inputs:
+`npm test` currently covers:
 
-- current HP / max HP
-- species catch rate
-- ball multiplier
-- status multiplier
-- shiny-event multiplier
-- player-specific critical-capture chance
+- TypeScript checks
+- capture decision/resource-conservation cases
+- multi-target labeling
+- cross-origin message rejection
+- simulated game bridge → extension → decision → overlay flow
+- 2P bridge compatibility fixture
+- installer idempotency
+- built extension bundle smoke test
 
-The adapter calculates critical-capture probability separately for each ball because the game's critical chance depends on modified catch rate.
+GitHub Actions runs the same suite on pushes and pull requests.
 
-## Current limitation
+## Remaining live verification
 
-The bridge is stored here because this GitHub connection has no push permission to `SolVolrund/pokerogue-2p-beta`. It must be installed into that game checkout (or applied in a fork you control) before live recommendations can work.
+A real running `SolVolrund/pokerogue-2p-beta` checkout still needs one end-to-end browser encounter to verify that the live game emits the same data shape as the compatibility fixture and that the displayed probability matches a real encounter.
