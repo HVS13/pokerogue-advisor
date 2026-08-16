@@ -8,7 +8,7 @@ let recs = analyzeBattleMoves([
 assert.equal(recs[0].isDecision, true);
 assert.equal(recs[0].label, "USE THUNDERBOLT → GYARADOS");
 assert.equal(recs[0].decisionStrength, "equivalent");
-assert.equal(recs[0].confidence, 0.52);
+assert.equal(recs[0].confidence, undefined, "battle decisions should not invent numeric confidence percentages");
 assert.match(recs[0].reason.join(" "), /Ice Beam.*effectively tied/i);
 assert.equal(recs[1].label, "Thunderbolt → Gyarados");
 assert.equal(recs[2].label, "Ice Beam → Gyarados");
@@ -20,7 +20,7 @@ recs = analyzeBattleMoves([
 ]);
 assert.equal(recs[0].label, "USE EARTHQUAKE → GHOLDENGO");
 assert.equal(recs[0].decisionStrength, "strong");
-assert.equal(recs[0].confidence, 0.88);
+assert.equal(recs[0].confidence, undefined);
 assert.match(recs[0].reason.join(" "), /140\.0 vs 92\.0 next-best/);
 
 recs = analyzeBattleMoves([
