@@ -53,6 +53,14 @@ interface AdvisorRequestMessage {
 const REQUEST_SOURCE = "pokerogue-advisor-extension";
 const RESPONSE_SOURCE = "pokerogue-advisor-game";
 
+const ADVISOR_BALL_TYPES = [
+  PokeballType.POKEBALL,
+  PokeballType.GREAT_BALL,
+  PokeballType.ULTRA_BALL,
+  PokeballType.ROGUE_BALL,
+  PokeballType.MASTER_BALL,
+] as const;
+
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
@@ -108,10 +116,9 @@ function getCaptureTargets(): WireCaptureTarget[] | undefined {
   return targets.map(target => {
     const statusMultiplier = target.status ? getStatusEffectCatchRateMultiplier(target.status.effect) : 1;
     const shinyMultiplier = target.isShiny() ? timedEventManager.getShinyCatchMultiplier() : 1;
-    const balls = Object.entries(counts).flatMap(([rawType, rawCount]) => {
-      const ballType = Number(rawType) as PokeballType;
-      const count = Number(rawCount ?? 0);
-      if (!Number.isInteger(ballType) || count <= 0) return [];
+    const balls = ADVISOR_BALL_TYPES.flatMap(ballType => {
+      const count = Number(counts[ballType] ?? 0);
+      if (count <= 0) return [];
 
       return [{
         id: String(ballType),
