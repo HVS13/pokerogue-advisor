@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { NON_IDLE_SNAPSHOT_GRACE_MS, shouldAcceptSnapshot } from "../dist/bridge/api.js";
+import { isKnownPokeRogueHost, isLikelyPokeRoguePage } from "../dist/bridge/page-detection.js";
 import { getSnapshotContentKey } from "../dist/core/snapshot-key.js";
 
 const idle = { version: 1, context: "idle", notice: "waiting", generatedAt: 100 };
@@ -27,4 +28,11 @@ const rewardLater = { ...reward, generatedAt: 999999 };
 assert.equal(getSnapshotContentKey(reward), getSnapshotContentKey(rewardLater), "transport timestamps must not trigger rerenders");
 assert.notEqual(getSnapshotContentKey(reward), getSnapshotContentKey({ ...reward, shopMoney: 5000 }), "decision content changes must trigger rerenders");
 
-console.log("PASS snapshot routing arbitration and stable render-key tests");
+assert.equal(isKnownPokeRogueHost("pokerogue.net"), true);
+assert.equal(isKnownPokeRogueHost("beta.pokerogue.net"), true);
+assert.equal(isKnownPokeRogueHost("example.com"), false);
+assert.equal(isLikelyPokeRoguePage("192.168.1.20", "PokéRogue"), true, "LAN game pages should activate by title");
+assert.equal(isLikelyPokeRoguePage("26.12.34.56", "PokeRogue (Beta)"), true, "VPN/LAN hosts should not require a private-IP assumption");
+assert.equal(isLikelyPokeRoguePage("example.com", "Unrelated App"), false, "unrelated HTTP pages must stay inert");
+
+console.log("PASS snapshot routing, render stability, and page detection tests");
