@@ -108,13 +108,14 @@ function buildRewardChoices(
   return options.flatMap((option, optionIndex) => {
     const choice = withRngPreserved(() => chooseComputerPartnerRewardOption([option], party, context));
     if (!choice) return [];
+    const target = getTargetLabel(choice, party);
 
     return [{
       id: `${optionIndex}:${choice.itemId}`,
       name: option.type.name,
       score: choice.score,
       reason: choice.reason,
-      ...(getTargetLabel(choice, party) ? { target: getTargetLabel(choice, party) } : {}),
+      ...(target ? { target } : {}),
     }];
   });
 }
@@ -129,6 +130,7 @@ function buildShopChoices(
     const choice = scoreComputerPartnerRecoveryOption(option, optionIndex, party);
     if (!choice || choice.cost > money) return [];
     if (!choice.isEmergency && money - choice.cost < reserveCost) return [];
+    const target = getTargetLabel(choice, party);
 
     return [{
       id: `${optionIndex}:${choice.itemId}`,
@@ -139,7 +141,7 @@ function buildShopChoices(
       emergency: choice.isEmergency,
       reserveCost,
       moneyAfterPurchase: money - choice.cost,
-      ...(getTargetLabel(choice, party) ? { target: getTargetLabel(choice, party) } : {}),
+      ...(target ? { target } : {}),
     }];
   });
 }
