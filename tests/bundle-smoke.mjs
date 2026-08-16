@@ -36,6 +36,6 @@ assert.equal(typeof intervalCallback, "function", "bundle should schedule adviso
 intervalCallback();
 const rendered = documentElement.text();
 assert.match(rendered, /POKEROGUE ADVISOR/);
-assert.match(rendered, /USE ULTRA BALL NOW/);
+assert.match(rendered, /THROW ULTRA BALL NOW/);
 assert.match(rendered, /EQUIVALENT/);
 console.log("PASS built extension bundle smoke test");
