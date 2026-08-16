@@ -10,13 +10,13 @@ class FakeElement {
   text() { return [this.textContent, ...this.children.map(child => typeof child?.text === "function" ? child.text() : child?.textContent ?? "")].filter(Boolean).join("\n"); }
 }
 class FakeWindow {
-  constructor() { this.location = { origin: "http://localhost:8000" }; this.listeners = new Map(); }
+  constructor() { this.location = { origin: "http://localhost:8000", hostname: "localhost" }; this.listeners = new Map(); }
   addEventListener(type, listener) { const listeners = this.listeners.get(type) ?? []; listeners.push(listener); this.listeners.set(type, listeners); }
   postMessage(data, targetOrigin) { assert.equal(targetOrigin, this.location.origin); const event = { source: this, origin: this.location.origin, data }; for (const listener of this.listeners.get("message") ?? []) listener(event); }
 }
 const window = new FakeWindow();
 const documentElement = new FakeElement();
-const document = { documentElement, createElement() { return new FakeElement(); } };
+const document = { title: "PokéRogue", documentElement, createElement() { return new FakeElement(); } };
 window.addEventListener("message", event => {
   if (event.data?.source !== "pokerogue-advisor-extension" || event.data?.type !== "request-snapshot") return;
   window.postMessage({ source: "pokerogue-advisor-game", type: "snapshot", snapshot: {
@@ -29,10 +29,10 @@ window.addEventListener("message", event => {
   } }, window.location.origin);
 });
 let intervalCallback;
-const context = vm.createContext({ window, document, console, setInterval(callback) { intervalCallback = callback; return 1; }, clearInterval() {}, Object, Math, Date, Array, Map, Set, Number, String, Boolean, Error });
+const context = vm.createContext({ window, document, console, setInterval(callback) { intervalCallback = callback; return 1; }, clearInterval() {}, setTimeout() { return 1; }, Object, Math, Date, Array, Map, Set, Number, String, Boolean, Error });
 const code = await readFile(new URL("../extension/advisor.js", import.meta.url), "utf8");
 vm.runInContext(code, context, { filename: "advisor.js" });
-assert.equal(typeof intervalCallback, "function", "bundle should schedule advisor polling");
+assert.equal(typeof intervalCallback, "function", "bundle should schedule advisor polling on a PokeRogue page");
 intervalCallback();
 const rendered = documentElement.text();
 assert.match(rendered, /POKEROGUE ADVISOR/);
