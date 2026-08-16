@@ -1,0 +1,44 @@
+name: Ready-to-test package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+      - name: Write build identity
+        run: |
+          {
+            echo "PokeRogue Advisor ready-to-test package"
+            echo "commit=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF_NAME}"
+            echo "built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > BUILD.txt
+      - name: Upload 90-day test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokerogue-advisor-ready-to-test
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            extension/
+            scripts/install-2p.mjs
+            scripts/install-official.mjs
+            integrations/solvolrund-2p/
+            integrations/pagefaultgames-official/
+            QUICKSTART.md
+            DIAGNOSTICS.md
+            README.md
+            ROADMAP.md
+            BUILD.txt
