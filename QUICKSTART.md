@@ -31,7 +31,14 @@ In Chrome/Edge:
 4. Select the artifact's `extension/` folder.
 5. Open or reload the PokeRogue page.
 
-Press **F8** to show/hide the overlay.
+Shortcuts:
+
+```text
+F8        show/hide the overlay
+Shift+F8 export the last meaningful decision states as JSON
+```
+
+The exported session is local-only and is useful if a recommendation later looks wrong or confusing.
 
 ## Official PokeRogue local checkout
 
